@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Notes + walkthrough for a particle system where OpenCL updates and OpenGL renders using shared GPU buffers (interop).">
+        <meta name="description" content="Combine OpenCL and OpenGL to create a GPU-accelerated particle system with shared buffers.">
       
       
         <meta name="author" content="John Klucinec">
@@ -51,8 +51,8 @@
         
         
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,500,500i,700,700i%7CJetBrains+Mono:400,400i,700,700i&display=fallback">
-        <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,500,500i,700,700i%7CJetbrains+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"Jetbrains Mono"}</style>
       
     
     
@@ -277,105 +277,44 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#introduction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Introduction
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#goal" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Goal
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#getting-started" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Getting started
+        Getting Started
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Getting started">
+    <nav class="md-nav" aria-label="Getting Started">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#what-you-need" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        What you need
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#build" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Build
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#run" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Run
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#controls" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Controls
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#project-layout" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Project layout
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#the-core-idea" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        The core idea
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="The core idea">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#data-per-particle" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Data per particle
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#simulation-step-high-level" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Simulation step (high level)
+        Project Layout
       
     </span>
   </a>
@@ -388,22 +327,22 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#openclopengl-buffer-sharing" class="md-nav__link">
+  <a href="#requirements" class="md-nav__link">
     <span class="md-ellipsis">
       
-        OpenCL/OpenGL buffer sharing
+        Requirements
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="OpenCL&#x2f;OpenGL buffer sharing">
+    <nav class="md-nav" aria-label="Requirements">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#what-gets-shared" class="md-nav__link">
+  <a href="#1-set-local-work-group-size" class="md-nav__link">
     <span class="md-ellipsis">
       
-        What gets shared
+        1. Set Local Work-Group Size
       
     </span>
   </a>
@@ -411,10 +350,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#create-a-shared-vbo-sketch" class="md-nav__link">
+  <a href="#2-set-optimal-steps-per-frame" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Create a shared VBO (sketch)
+        2. Set Optimal Steps Per Frame
       
     </span>
   </a>
@@ -422,10 +361,65 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#the-per-frame-or-multiple-interop-dance" class="md-nav__link">
+  <a href="#3-add-additional-bumper-object" class="md-nav__link">
     <span class="md-ellipsis">
       
-        The per-frame or multiple “interop dance”
+        3. Add Additional Bumper Object
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-implement-dynamic-color-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Implement Dynamic Color Changes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-test-performance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Test Performance
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#6-show-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Show Results
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#7-demonstrate-your-program-in-action" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Demonstrate your program in action
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#8-commentary-in-the-pdf-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Commentary in the PDF file
       
     </span>
   </a>
@@ -438,41 +432,24 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#the-kernel-simple-version" class="md-nav__link">
+  <a href="#tips" class="md-nav__link">
     <span class="md-ellipsis">
       
-        The kernel (simple version)
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="The kernel (simple version)">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#inputsoutputs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Inputs/outputs
+        Tips
       
     </span>
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
-  <a href="#pseudocode" class="md-nav__link">
+      
+        <li class="md-nav__item">
+  <a href="#grading" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Pseudocode
+        Grading
       
     </span>
   </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -507,150 +484,262 @@
                 
                   
 
-<!-- This page uses Zensical front matter (--- ... ---) and admonitions (!!! tip, !!! note, etc.). [web:37][web:42] -->
-
 <h1 id="openclopengl-interop-particle-system">OpenCL/OpenGL Interop Particle System</h1>
-<p>This site is a dev-log + tutorial for a GPU particle system where <strong>OpenCL does the sim</strong> and <strong>OpenGL does the drawing</strong>, and the two share buffers so nothing has to bounce through the CPU.</p>
-<div class="admonition tip">
-<p class="admonition-title">What “interop” means here</p>
-<p>OpenGL owns the VBOs (for rendering), OpenCL temporarily acquires those same buffers, writes new particle data, releases them back, then OpenGL draws the updated data.</p>
-</div>
-<div class="admonition note">
-<p class="admonition-title">Goal</p>
-<p>Keep particle positions/colors on the GPU the whole time: simulate in OpenCL, render in OpenGL, repeat.</p>
+<h2 id="introduction">Introduction</h2>
+<p>Particle systems are used in games, films, and visual effects to simulate natural phenomena such as clouds, dust, fireworks, fire, explosions, water flow, sand, swarms of insects, and even herds of animals. Once you understand how they work, you'll notice them everywhere.</p>
+<p>A particle system operates by controlling an extensive collection of individual 3D particles to exhibit some behavior. For a deeper technical overview, see <a href="https://web.engr.oregonstate.edu/~mjb/cs491/Handouts/particlesystems.2pp.pdf">Mike Bailey's slide</a>.</p>
+<div class="admonition quote">
+<p class="admonition-title">Fun Fact</p>
+<p>Particle systems were first seen in <a href="https://youtu.be/LNELRd7E3EQ?t=164">Star Trek II: The Wrath of Khan Genesis Demo</a>, animated over 40 years ago. While the technology has evolved significantly since then, this groundbreaking sequence introduced the concept to computer graphics.</p>
 </div>
 <hr />
-<h2 id="getting-started">Getting started</h2>
-<h3 id="what-you-need">What you need</h3>
-<h3 id="build">Build</h3>
+<h2 id="goal">Goal</h2>
+<p>In this project, you will combine OpenCL and OpenGL to create your own particle system.  The project template includes a complete solution for one million (1024 x 1024) particles, one sphere bumper, and no color changes. The files you need to change are <code>sample.cpp</code> and <code>particles.cl</code>. The degree of "cool-ness" is up to you, but here is a minimum checklist you must complete to get full credit. For more in-depth instructions, see the Requirements section.</p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Choose an appropriate <code>LOCAL_SIZE</code> value</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Select an optimal <code>STEPS_PER_FRAME</code> value  </li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Add at least one additional bumper object (sphere)</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Implement dynamic particle color changes</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Test performance with varying particle counts</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Create a graph to visualize your results</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Demonstrate your program in action</li>
+</ul>
+<div class="admonition tip">
+<p class="admonition-title">What interoperability or "interop" means here</p>
+<p>OpenGL owns the VBOs (<em>for rendering</em>), OpenCL temporarily acquires those same buffers, writes new particle data, releases them back, and then OpenGL draws the updated data.</p>
+</div>
+<hr />
+<h2 id="getting-started">Getting Started</h2>
+<p>This project uses CMake as the build system to ensure it runs on Windows, macOS, and Linux. It's written in C++ 17 and uses OpenGL 4.1 and OpenCL 1.2, as these are the latest versions supported on macOS. OpenMP is used for kernel benchmarking. If you need to install any of these, detailed instructions for each operating system are provided below.</p>
+<h4 id="project-layout">Project Layout</h4>
+<div class="language-text highlight"><pre><span></span><code>├─ src/                 # Libraries, utils, and shaders
+├─ .clang-format        # Style Guide
+├─ .clangd              
+├─ CMakeLists.txt
+├─ main.cpp             # You will edit this file
+└─ particles.cl         # You will edit this file   
+</code></pre></div>
+<p>To build the project, run these commands from your terminal:</p>
 <div class="language-bash highlight"><pre><span></span><code>cmake<span class="w"> </span>-B<span class="w"> </span>build
 cmake<span class="w"> </span>--build<span class="w"> </span>build
 </code></pre></div>
-<h3 id="run">Run</h3>
-<div class="language-bash highlight"><pre><span></span><code>build<span class="se">\b</span>in<span class="se">\D</span>ebug<span class="se">\O</span>penGLApp.exe
-./build/bin/OpenGLApp
-</code></pre></div>
-<h3 id="controls">Controls</h3>
+<details class="info">
+<summary>Windows</summary>
+<p>TODO</p>
+</details>
+<details class="info">
+<summary>MacOS</summary>
+<p>TODO</p>
+</details>
+<details class="info">
+<summary>Linux</summary>
+<p>TODO</p>
+</details>
 <hr />
-<h2 id="project-layout">Project layout</h2>
-<p>Suggested structure for a Zensical docs site + code repo:</p>
-<div class="language-text highlight"><pre><span></span><code>├─ src/             # Libraries, Utils, and Shaders
-├─ .clang-format    # Style Guide
-├─ .clangd              
-├─ CMakeLists.txt
-├─ main.cpp         &lt;---- You will edit this file
-└─ particles.cl     &lt;---- You will edit this file   
-</code></pre></div>
-<div class="admonition tip">
-<p class="admonition-title">How I write pages</p>
-<p>One page = one idea. Keep the main loop readable and link out to deeper dives (buffers, sync, kernel math).</p>
-</div>
-<hr />
-<h2 id="the-core-idea">The core idea</h2>
-<h3 id="data-per-particle">Data per particle</h3>
-<p>We’ll keep three arrays on the GPU:</p>
+<h2 id="requirements">Requirements</h2>
+<h4 id="1-set-local-work-group-size">1. Set Local Work-Group Size</h4>
+<p>Set the local work-group size (<code>LOCAL_SIZE</code>) to some fixed value. You can determine an appropriate value by setting <code>PRINTINFO</code> to true, which shows the maximum work-group size your GPU supports. Since this particle system uses simple calculations, pick a reasonable power of 2 (like 128 or 256) within that maximum, set it once, and leave it.</p>
+<h4 id="2-set-optimal-steps-per-frame">2. Set Optimal Steps Per Frame</h4>
+<p>First, it's important to understand how the default program flow works</p>
+<details>
+<summary>Program Execution Flow</summary>
+<p><figure markdown="span">
+  <img alt="Image title" src="images\interop_light.png#only-light" />
+  <img alt="Image title" src="images\interop_dark.png#only-dark" /></p>
+<p><figcaption>
+<a href="https://web.engr.oregonstate.edu/~mjb/cs575/Handouts/opencl.opengl.vbo.1pp.pdf#page=2" title="Modified from Mike Bailey">Source</a></p>
+</figcaption>
+</figure>
+</details>
+<p>Looking at the graph, once we set up the data on the OpenGL side, OpenCL acquires it. As explained in the OpenCL/GL Interoperability notes, synchronization is required because only one can hold the buffer at a time. OpenCL runs a kernel that reads an x, y, and z value, updates it according to projectile motion laws, writes it back to the buffer, and releases it. OpenGL then draws the buffer, and the cycle repeats.</p>
+<p>While this system works, it means only one physics update happens per visual frame. If you're locked to your monitor's refresh rate (<em>let's assume 60Hz</em>), you'll draw 60 frames per second, which is your framerate.</p>
+<p>But here's the catch: <strong>Just because you can only draw 60 frames per second doesn't mean you can only compute 60 times per second.</strong></p>
+<p><code>STEPS_PER_FRAME)</code> determines how many compute kernels are launched before drawing a frame. We want to know "How fast can my GPU update particles?" not "How many frames can I draw?" When <code>STEPS_PER_FRAME</code> is set higher than 1, you're running multiple physics updates per visual frame.</p>
+<p>Think of your GPU like a delivery truck. Every frame is a "trip", and every kernel compute is a "package".</p>
 <ul>
-<li>Position: <code>float4 (x, y, z, 1)</code></li>
-<li>Velocity: <code>float4 (vx, vy, vz, 0)</code></li>
-<li>Color: <code>float4 (r, g, b, a)</code></li>
+<li><strong>Make 1 delivery per trip</strong> (<code>STEPS_PER_FRAME</code> = 1): You drive to one house, drop off a package, drive all the way back, then wait for the next scheduled trip. Inefficient!</li>
+<li><strong>Make 10 deliveries per trip</strong> (<code>STEPS_PER_FRAME</code> = 10): You drive out once, hit 10 houses, then come back. You're doing 10 times more work in the same wall-clock time.</li>
 </ul>
-<div class="admonition info">
-<p class="admonition-title">Why float4?</p>
-<p>OpenCL has <code>float4</code> built-in, and the extra component is handy for alignment and convenience.</p>
+<p>Your GPU has limits, so setting the value too high will hurt your framerate. Your goal is to find the value that stresses your GPU the most while maintaining fluid motion. An easy way is to increase the value until your FPS drops to around your monitor's refresh rate.</p>
+<div class="admonition note">
+<p class="admonition-title">Test with your maximum particle count when finding this value.</p>
 </div>
-<h3 id="simulation-step-high-level">Simulation step (high level)</h3>
-<p>Every frame (or fixed timestep):</p>
+<h4 id="3-add-additional-bumper-object">3. Add Additional Bumper Object</h4>
+<p>Your simulation must have at least <strong>two</strong> "bumpers" in it for the particles to bounce off of. Each bumper needs to be geometrically designed such that, given particles XYX, you can quickly tell if that particle is inside or outside the bumper. To get the bounce right, each bumper must know its outward-facing surface normal everywhere.</p>
+<p>What's the easiest shape for a bumper? A sphere! In computer graphics, we love spheres as they are computationally "nice". It's fast and straightforward to tell if something is inside or outside of a sphere. It's just as straightforward to determine a normal vector for a point on the surface of a sphere, too.</p>
+<p>It is OK to assume that the two bumpers are separate from each other; that is, a particle cannot collide with both at the same time.</p>
+<p>Your OpenCL <code>.cl</code> program must also handle bounces from your (&gt;=2) bumpers. Be sure to draw these bumpers in your <code>.cpp</code> program in <code class="language-cpp highlight"><span class="n">InitLists</span><span class="p">()</span></code> so that you can see where they are.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Don't forget to update the <code>.cl</code> kernel code with the <strong>same</strong> values you set in your <code>.cpp</code> code.</p>
+</div>
+<h4 id="4-implement-dynamic-color-changes">4. Implement Dynamic Color Changes</h4>
+<p>The sample OpenCL code does not retrieve the colors, modify them, or restore them. However, your <code>.cl</code> kernel needs to change the particles' colors dynamically. You could base this on position, velocity, time, bounce knowledge, etc. The way they change is up to you, but the color of each particle needs to change in some predictable way during the simulation.</p>
+<div class="admonition note">
+<p class="admonition-title">OpenGL defines the red, green, and blue components of a color each as a floating-point value between <code>0.0</code> and <code>1.0</code></p>
+</div>
+<h4 id="5-test-performance">5. Test Performance</h4>
+<p>Vary the total number of particles from something small-ish (~1024) to something big-ish (~1024*1024) in some increments that will look good on the graph.</p>
+<p>If you check the "show performance" box, you will see current, peak, and average measurements. Let the simulation run for a few seconds, and then write down your <strong>Average</strong> GigaParticles/Sec.</p>
+<h4 id="6-show-results">6. Show Results</h4>
+<p>Make a table and a graph of Performance versus Total Number of Particles.</p>
+<details class="note">
+<summary>That this will just be one graph with one curve.</summary>
+<p>TODO: Add graph example + python code to make one?</p>
+</details>
+<div class="admonition example">
+<p class="admonition-title">Bonus</p>
+<p>If you have some free time, run all the tests again with different work group sizes and compare the results.</p>
+</div>
+<h4 id="7-demonstrate-your-program-in-action">7. Demonstrate your program in action</h4>
+<p>Make a video of your program in action and be sure it's Unlisted. You can use any video-capture tool you want. If you have never done this before, I recommend Kaltura, for which OSU has a site license for you to use. You can access the Kaltura noteset here. If you use Kaltura, be sure your video is set to Unlisted. If it isn't, then we won't be able to see it, and we can't grade your project.</p>
+<p>Sites like YouTube also work. Just make sure your video is either public or unlisted, not <strong>private</strong>.</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>Copy and paste your video link into an incognito tab and see if it plays. If it does, you should be good to go.</p>
+</div>
+<h4 id="8-commentary-in-the-pdf-file">8. Commentary in the PDF file</h4>
+<p>Your commentary PDF should include:</p>
 <ol>
-<li>Apply gravity</li>
-<li>Integrate velocity + position</li>
-<li>Handle collisions (sphere “bumpers” to start)</li>
-<li>Optionally update color based on “events” (like collisions or speed)</li>
+<li>A web link to the video showing your program in action -- be sure your video is Unlisted.</li>
+<li>What machine did you run this on?</li>
+<li>What predictable dynamic thing did you do with the particle colors (random changes are not good enough)?</li>
+<li>Include at least one screenshot of your project in action</li>
+<li>Show the table and graph.</li>
+<li>What patterns are you seeing in the performance curve?</li>
+<li>Why do you think the patterns look this way?</li>
+<li>What does that mean for the proper use of GPU parallel computing?</li>
 </ol>
 <hr />
-<h2 id="openclopengl-buffer-sharing">OpenCL/OpenGL buffer sharing</h2>
-<h3 id="what-gets-shared">What gets shared</h3>
-<p>OpenGL creates VBOs like:
-- positions VBO (rendered as points / billboards)
-- colors VBO (optional)</p>
-<p>OpenCL gets a handle to those buffers so the kernel can write directly into them.</p>
-<h3 id="create-a-shared-vbo-sketch">Create a shared VBO (sketch)</h3>
-<div class="language-cpp highlight"><pre><span></span><code><span class="c1">// OpenGL: create VBO</span>
-<span class="n">GLuint</span><span class="w"> </span><span class="n">posVbo</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
-<span class="n">glGenBuffers</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">posVbo</span><span class="p">);</span>
-<span class="n">glBindBuffer</span><span class="p">(</span><span class="n">GL_ARRAY_BUFFER</span><span class="p">,</span><span class="w"> </span><span class="n">posVbo</span><span class="p">);</span>
-<span class="n">glBufferData</span><span class="p">(</span><span class="n">GL_ARRAY_BUFFER</span><span class="p">,</span><span class="w"> </span><span class="n">numParticles</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="k">sizeof</span><span class="p">(</span><span class="kt">float</span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span><span class="w"> </span><span class="k">nullptr</span><span class="p">,</span><span class="w"> </span><span class="n">GL_DYNAMIC_DRAW</span><span class="p">);</span>
+<h2 id="tips">Tips</h2>
+<details class="abstract">
+<summary>Explaining the Sample Code – TODO</summary>
+<p>TODO: Add explaination</p>
+</details>
+<details class="abstract">
+<summary>Explaining the Kernel – Advancing a Particle by DT TODO: UPDATE CODE</summary>
+<p>In the sample code, Joe Parallel wanted to clean up the code by treating x, y, z positions and velocities as single variables instead of handling each component separately. To do this, he created custom types called <code>point</code>, <code>vector</code>, and <code>color</code> using typedef, all backed by OpenCL's <code>float4</code> type. (OpenCL doesn't have a <code>float3</code>, so <code>float4</code> is the next best option, the fourth component goes unused.) He also stored sphere definitions as a <code>float4</code>, packing the center coordinates and radius as x, y, z, r.</p>
+<div class="language-cpp highlight"><pre><span></span><code><span class="k">typedef</span><span class="w"> </span><span class="n">float4</span><span class="w"> </span><span class="n">point</span><span class="p">;</span><span class="w">   </span><span class="c1">// x, y, z, 1.</span>
+<span class="k">typedef</span><span class="w"> </span><span class="n">float4</span><span class="w"> </span><span class="n">vector</span><span class="p">;</span><span class="w">  </span><span class="c1">// vx, vy, vz, 0.</span>
+<span class="k">typedef</span><span class="w"> </span><span class="n">float4</span><span class="w"> </span><span class="n">color</span><span class="p">;</span><span class="w">   </span><span class="c1">// r, g, b, a</span>
+<span class="k">typedef</span><span class="w"> </span><span class="n">float4</span><span class="w"> </span><span class="n">sphere</span><span class="p">;</span><span class="w">  </span><span class="c1">// x, y, z, r</span>
 
-<span class="c1">// OpenCL: wrap GL buffer</span>
-<span class="n">cl_int</span><span class="w"> </span><span class="n">err</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">CL_SUCCESS</span><span class="p">;</span>
-<span class="n">cl_mem</span><span class="w"> </span><span class="n">clPos</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">clCreateFromGLBuffer</span><span class="p">(</span><span class="n">clContext</span><span class="p">,</span><span class="w"> </span><span class="n">CL_MEM_READ_WRITE</span><span class="p">,</span><span class="w"> </span><span class="n">posVbo</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">err</span><span class="p">);</span>
+<span class="n">constant</span><span class="w"> </span><span class="n">sphere</span><span class="w"> </span><span class="n">Sphere1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">sphere</span><span class="p">)(</span><span class="w"> </span><span class="mf">-100.</span><span class="p">,</span><span class="w"> </span><span class="mf">-800.</span><span class="p">,</span><span class="w"> </span><span class="mf">0.</span><span class="p">,</span><span class="w"> </span><span class="mf">600.</span><span class="w"> </span><span class="p">);</span>
 </code></pre></div>
-<div class="admonition tip">
-<p class="admonition-title">Rule of thumb</p>
-<p>Let OpenGL “own” the buffer lifetime. OpenCL just borrows it via acquire/release each frame.</p>
-</div>
-<h3 id="the-per-frame-or-multiple-interop-dance">The per-frame or multiple “interop dance”</h3>
-<div class="language-cpp highlight"><pre><span></span><code><span class="c1">// Acquire GL buffers for OpenCL</span>
-<span class="n">clEnqueueAcquireGLObjects</span><span class="p">(</span><span class="n">queue</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">clPos</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="k">nullptr</span><span class="p">,</span><span class="w"> </span><span class="k">nullptr</span><span class="p">);</span>
-
-<span class="c1">// Run kernel(s) that update positions/colors</span>
-<span class="c1">// clSetKernelArg(...)</span>
-<span class="c1">// clEnqueueNDRangeKernel(...)</span>
-
-<span class="c1">// Release buffers back to OpenGL</span>
-<span class="n">clEnqueueReleaseGLObjects</span><span class="p">(</span><span class="n">queue</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">clPos</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="k">nullptr</span><span class="p">,</span><span class="w"> </span><span class="k">nullptr</span><span class="p">);</span>
-
-<span class="c1">// Make sure CL is done before GL draws from the buffer</span>
-<span class="n">clFinish</span><span class="p">(</span><span class="n">queue</span><span class="p">);</span>
+<p>Joe Parallel also stored the (x,y,z) acceleration of gravity in a <code>float4</code>:</p>
+<div class="language-cpp highlight"><pre><span></span><code><span class="n">constant</span><span class="w"> </span><span class="n">float4</span><span class="w"> </span><span class="n">G</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">float4</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span><span class="w"> </span><span class="mf">-9.8</span><span class="p">,</span><span class="w"> </span><span class="mf">0.0</span><span class="p">,</span><span class="w"> </span><span class="mf">0.0</span><span class="p">);</span>
 </code></pre></div>
-<div class="admonition warning">
-<p class="admonition-title">Sync matters</p>
-<p>If you see flicker, one-frame lag, or random garbage: it’s usually missing/incorrect sync around acquire/release (or you’re writing out of bounds).</p>
-</div>
-<hr />
-<h2 id="the-kernel-simple-version">The kernel (simple version)</h2>
-<h3 id="inputsoutputs">Inputs/outputs</h3>
-<ul>
-<li><code>dPos</code> (shared buffer): read+write</li>
-<li><code>dVel</code> (OpenCL-only buffer): read+write</li>
-<li><code>dCol</code> (shared buffer): optional write</li>
-</ul>
-<h3 id="pseudocode">Pseudocode</h3>
-<div class="language-c highlight"><pre><span></span><code><span class="n">kernel</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="n">StepParticles</span><span class="p">(</span>
-<span class="w">    </span><span class="n">global</span><span class="w"> </span><span class="n">float4</span><span class="o">*</span><span class="w"> </span><span class="n">dPos</span><span class="p">,</span>
-<span class="w">    </span><span class="n">global</span><span class="w"> </span><span class="n">float4</span><span class="o">*</span><span class="w"> </span><span class="n">dVel</span><span class="p">,</span>
-<span class="w">    </span><span class="n">global</span><span class="w"> </span><span class="n">float4</span><span class="o">*</span><span class="w"> </span><span class="n">dCol</span><span class="p">,</span>
-<span class="w">    </span><span class="kt">float</span><span class="w"> </span><span class="n">dt</span><span class="p">,</span>
-<span class="w">    </span><span class="n">float4</span><span class="w"> </span><span class="n">gravity</span><span class="p">,</span>
-<span class="w">    </span><span class="n">float4</span><span class="w"> </span><span class="n">sphere0</span><span class="p">,</span><span class="w">   </span><span class="c1">// (cx, cy, cz, r)</span>
-<span class="w">    </span><span class="n">float4</span><span class="w"> </span><span class="n">sphere1</span>
-<span class="p">)</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">get_global_id</span><span class="p">(</span><span class="mi">0</span><span class="p">);</span>
+<p>Now, given a particle's position <code>point p</code> and a particle's velocity <code>vector v</code>, here is how you advance it one time step:</p>
+<div class="language-cpp highlight"><pre><span></span><code><span class="n">kernel</span>
+<span class="kt">void</span>
+<span class="n">Particle</span><span class="p">(</span><span class="w"> </span><span class="n">global</span><span class="w"> </span><span class="n">point</span><span class="w"> </span><span class="o">*</span><span class="n">dPobj</span><span class="p">,</span><span class="w"> </span><span class="n">global</span><span class="w"> </span><span class="n">vector</span><span class="w"> </span><span class="o">*</span><span class="n">dVel</span><span class="p">,</span><span class="w"> </span><span class="n">global</span><span class="w"> </span><span class="n">color</span><span class="w"> </span><span class="o">*</span><span class="n">dCobj</span><span class="w"> </span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">gid</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">get_global_id</span><span class="p">(</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">);</span><span class="w"> </span><span class="c1">// particle number</span>
 
-<span class="w">    </span><span class="n">float4</span><span class="w"> </span><span class="n">p</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">dPos</span><span class="p">[</span><span class="n">id</span><span class="p">];</span>
-<span class="w">    </span><span class="n">float4</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">dVel</span><span class="p">[</span><span class="n">id</span><span class="p">];</span>
+<span class="w">    </span><span class="n">point</span><span class="w"> </span><span class="n">p</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">dPobj</span><span class="p">[</span><span class="n">gid</span><span class="p">];</span>
+<span class="w">    </span><span class="n">vector</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">dVel</span><span class="p">[</span><span class="n">gid</span><span class="p">];</span>
+<span class="w">    </span><span class="n">color</span><span class="w"> </span><span class="n">c</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">dCobj</span><span class="p">[</span><span class="n">gid</span><span class="p">];</span>
 
-<span class="w">    </span><span class="c1">// Integrate</span>
-<span class="w">    </span><span class="n">v</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">gravity</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">dt</span><span class="p">;</span>
-<span class="w">    </span><span class="n">p</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">dt</span><span class="p">;</span>
-<span class="w">    </span><span class="n">p</span><span class="p">.</span><span class="n">w</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">1.0f</span><span class="p">;</span>
-<span class="w">    </span><span class="n">v</span><span class="p">.</span><span class="n">w</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0.0f</span><span class="p">;</span>
+<span class="w">    </span><span class="n">point</span><span class="w"> </span><span class="n">pp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">p</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">v</span><span class="o">*</span><span class="n">DT</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">G</span><span class="o">*</span><span class="p">(</span><span class="n">point</span><span class="p">)(</span><span class="w"> </span><span class="mf">.5</span><span class="o">*</span><span class="n">DT</span><span class="o">*</span><span class="n">DT</span><span class="w"> </span><span class="p">);</span><span class="w"> </span><span class="c1">// p&#39;</span>
+<span class="w">    </span><span class="n">vector</span><span class="w"> </span><span class="n">vp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">G</span><span class="o">*</span><span class="n">DT</span><span class="p">;</span><span class="w"> </span><span class="c1">// v&#39;</span>
 
-<span class="w">    </span><span class="c1">// Collide with spheres (outline)</span>
-<span class="w">    </span><span class="c1">// if (insideSphere(p, sphere0)) v = bounce(...);</span>
-<span class="w">    </span><span class="c1">// if (insideSphere(p, sphere1)) v = bounce(...);</span>
-
-<span class="w">    </span><span class="c1">// Optional: color update</span>
-<span class="w">    </span><span class="c1">// dCol[id] = ...</span>
-
-<span class="w">    </span><span class="n">dPos</span><span class="p">[</span><span class="n">id</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">p</span><span class="p">;</span>
-<span class="w">    </span><span class="n">dVel</span><span class="p">[</span><span class="n">id</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">v</span><span class="p">;</span>
+<span class="w">    </span><span class="n">pp</span><span class="p">.</span><span class="n">w</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">1.0</span><span class="p">;</span>
+<span class="w">    </span><span class="n">vp</span><span class="p">.</span><span class="n">w</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0.0</span><span class="p">;</span>
+</code></pre></div>
+<p>Bouncing is handled by changing the velocity vector according to the outward-facing surface normal of the bumper at the point right before an impact:</p>
+<div class="language-cpp highlight"><pre><span></span><code><span class="w">    </span><span class="k">if</span><span class="p">(</span><span class="w"> </span><span class="n">IsInsideSphere</span><span class="p">(</span><span class="w"> </span><span class="n">pp</span><span class="p">,</span><span class="w"> </span><span class="n">Sphere1</span><span class="w"> </span><span class="p">)</span><span class="w"> </span><span class="p">)</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">        </span><span class="n">vp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">BounceSphere</span><span class="p">(</span><span class="w"> </span><span class="n">p</span><span class="p">,</span><span class="w"> </span><span class="n">v</span><span class="p">,</span><span class="w"> </span><span class="n">Sphere1</span><span class="w"> </span><span class="p">);</span>
+<span class="w">        </span><span class="n">pp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">p</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">vp</span><span class="o">*</span><span class="n">DT</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">G</span><span class="o">*</span><span class="p">(</span><span class="n">point</span><span class="p">)(</span><span class="w"> </span><span class="mf">.5</span><span class="o">*</span><span class="n">DT</span><span class="o">*</span><span class="n">DT</span><span class="w"> </span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+</code></pre></div>
+<p>And then do this again for the second bumper object. Assigning the new positions and velocities back into the global buffers happens like this:</p>
+<div class="language-cpp highlight"><pre><span></span><code><span class="w">    </span><span class="n">dPobj</span><span class="p">[</span><span class="n">gid</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pp</span><span class="p">;</span>
+<span class="w">    </span><span class="n">dVel</span><span class="p">[</span><span class="n">gid</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">vp</span><span class="p">;</span>
+<span class="w">    </span><span class="n">dCobj</span><span class="p">[</span><span class="n">gid</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">????</span><span class="p">;</span><span class="w"> </span><span class="c1">// some change in color based on something </span>
+<span class="w">                    </span><span class="c1">// happening in the simulation</span>
 <span class="p">}</span>
 </code></pre></div>
-<div class="admonition note">
-<p class="admonition-title">Start with something boring</p>
-<p>First make particles fall correctly. Then add one sphere collision. Then add the second sphere. Then add colors.</p>
-</div>
+<p><em>Some utility functions you might find helpful:</em></p>
+<div class="language-cpp highlight"><pre><span></span><code><span class="kt">bool</span>
+<span class="nf">IsInsideSphere</span><span class="p">(</span><span class="w"> </span><span class="n">point</span><span class="w"> </span><span class="n">p</span><span class="p">,</span><span class="w"> </span><span class="n">sphere</span><span class="w"> </span><span class="n">s</span><span class="w"> </span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="kt">float</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">fast_length</span><span class="p">(</span><span class="w"> </span><span class="n">p</span><span class="p">.</span><span class="n">xyz</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">s</span><span class="p">.</span><span class="n">xyz</span><span class="w"> </span><span class="p">);</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="p">(</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">s</span><span class="p">.</span><span class="n">w</span><span class="w"> </span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div>
+<div class="language-cpp highlight"><pre><span></span><code><span class="n">vector</span>
+<span class="nf">Bounce</span><span class="p">(</span><span class="w"> </span><span class="n">vector</span><span class="w"> </span><span class="n">in</span><span class="p">,</span><span class="w"> </span><span class="n">vector</span><span class="w"> </span><span class="n">n</span><span class="w"> </span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="n">n</span><span class="p">.</span><span class="n">w</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0.</span><span class="p">;</span>
+<span class="w">    </span><span class="n">n</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">fast_normalize</span><span class="p">(</span><span class="w"> </span><span class="n">n</span><span class="w"> </span><span class="p">);</span>
+<span class="w">    </span><span class="n">vector</span><span class="w"> </span><span class="n">out</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">in</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">n</span><span class="o">*</span><span class="p">(</span><span class="n">vector</span><span class="p">)(</span><span class="w"> </span><span class="mf">2.</span><span class="o">*</span><span class="n">dot</span><span class="p">(</span><span class="n">in</span><span class="p">.</span><span class="n">xyz</span><span class="p">,</span><span class="w"> </span><span class="n">n</span><span class="p">.</span><span class="n">xyz</span><span class="p">)</span><span class="w"> </span><span class="p">);</span><span class="w"> </span><span class="c1">// angle of reflection equals</span>
+<span class="w">                                                            </span><span class="c1">// angle of incidence</span>
+<span class="w">    </span><span class="n">out</span><span class="p">.</span><span class="n">w</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0.</span><span class="p">;</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">out</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+<div class="language-cpp highlight"><pre><span></span><code><span class="n">vector</span>
+<span class="nf">BounceSphere</span><span class="p">(</span><span class="w"> </span><span class="n">point</span><span class="w"> </span><span class="n">p</span><span class="p">,</span><span class="w"> </span><span class="n">vector</span><span class="w"> </span><span class="n">in</span><span class="p">,</span><span class="w"> </span><span class="n">sphere</span><span class="w"> </span><span class="n">s</span><span class="w"> </span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="n">vector</span><span class="w"> </span><span class="n">n</span><span class="p">;</span>
+<span class="w">    </span><span class="n">n</span><span class="p">.</span><span class="n">xyz</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">fast_normalize</span><span class="p">(</span><span class="w"> </span><span class="n">p</span><span class="p">.</span><span class="n">xyz</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">s</span><span class="p">.</span><span class="n">xyz</span><span class="w"> </span><span class="p">);</span>
+<span class="w">    </span><span class="n">n</span><span class="p">.</span><span class="n">w</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0.</span><span class="p">;</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">Bounce</span><span class="p">(</span><span class="w"> </span><span class="n">in</span><span class="p">,</span><span class="w"> </span><span class="n">n</span><span class="w"> </span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div>
+</details>
+<details class="abstract">
+<summary>Getting an Error Message that says something about "UTF-8"?</summary>
+<p>TODO: Find the actual source for this:
+This is the problem where Windows text editors put 2 marks at the end of a text line instead of the expected one mark.
+Refer to Slide #43 of the Project Notes noteset. </p>
+</details>
+<details class="abstract">
+<summary>Determining Platform and Device Information</summary>
+<p>TODO: Add stuff about VSYNC</p>
+<p>The sample code includes code from the printinfo program. This will show what OpenCL capabilities are on your system. The code will also attempt to pick the best OpenCL environment. Feel free to change this if you think it has picked the wrong one. </p>
+</details>
 <hr />
+<h2 id="grading">Grading</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Requirement</th>
+<th style="text-align: left;">Points</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">Convincing particle motion</td>
+<td style="text-align: left;">20</td>
+</tr>
+<tr>
+<td style="text-align: left;">Bouncing from at least two bumpers</td>
+<td style="text-align: left;">20</td>
+</tr>
+<tr>
+<td style="text-align: left;">Predictable dynamic color changes (random changes are not good enough)</td>
+<td style="text-align: left;">30</td>
+</tr>
+<tr>
+<td style="text-align: left;">Performance table and graph</td>
+<td style="text-align: left;">20</td>
+</tr>
+<tr>
+<td style="text-align: left;">Commentary in the PDF file</td>
+<td style="text-align: left;">30</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Potential Total</strong></td>
+<td style="text-align: left;"><strong>120</strong></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition success">
+<p class="admonition-title">Success</p>
+<p>The motion, bouncing, and colors of the particles need to be demonstrated via a video link. If it is a Kaltura video, be sure it has been set to <strong>Unlisted</strong>.</p>
+</div>
 
 
 

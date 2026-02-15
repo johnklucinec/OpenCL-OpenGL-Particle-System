@@ -1,170 +1,292 @@
 ---
 title: OpenCL/OpenGL Interop Particle System
-description: Notes + walkthrough for a particle system where OpenCL updates and OpenGL renders using shared GPU buffers (interop).
+description: Combine OpenCL and OpenGL to create a GPU-accelerated particle system with shared buffers.
 ---
-
-<!-- This page uses Zensical front matter (--- ... ---) and admonitions (!!! tip, !!! note, etc.). [web:37][web:42] -->
 
 # OpenCL/OpenGL Interop Particle System
 
-This site is a dev-log + tutorial for a GPU particle system where **OpenCL does the sim** and **OpenGL does the drawing**, and the two share buffers so nothing has to bounce through the CPU.
+## Introduction
 
-!!! tip "What “interop” means here"
-    OpenGL owns the VBOs (for rendering), OpenCL temporarily acquires those same buffers, writes new particle data, releases them back, then OpenGL draws the updated data.
+Particle systems are used in games, films, and visual effects to simulate natural phenomena such as clouds, dust, fireworks, fire, explosions, water flow, sand, swarms of insects, and even herds of animals. Once you understand how they work, you'll notice them everywhere.
 
-!!! note "Goal"
-    Keep particle positions/colors on the GPU the whole time: simulate in OpenCL, render in OpenGL, repeat.
+A particle system operates by controlling an extensive collection of individual 3D particles to exhibit some behavior. For a deeper technical overview, see [Mike Bailey's slide](https://web.engr.oregonstate.edu/~mjb/cs491/Handouts/particlesystems.2pp.pdf).
+
+!!! quote "Fun Fact"
+    Particle systems were first seen in [Star Trek II: The Wrath of Khan Genesis Demo](https://youtu.be/LNELRd7E3EQ?t=164), animated over 40 years ago. While the technology has evolved significantly since then, this groundbreaking sequence introduced the concept to computer graphics.
 
 ---
 
-## Getting started
+## Goal
 
-### What you need
+In this project, you will combine OpenCL and OpenGL to create your own particle system.  The project template includes a complete solution for one million (1024 x 1024) particles, one sphere bumper, and no color changes. The files you need to change are `sample.cpp` and `particles.cl`. The degree of "cool-ness" is up to you, but here is a minimum checklist you must complete to get full credit. For more in-depth instructions, see the Requirements section.
 
-### Build
+- [x] Choose an appropriate `LOCAL_SIZE` value
+- [x] Select an optimal `STEPS_PER_FRAME` value  
+- [x] Add at least one additional bumper object (sphere)
+- [x] Implement dynamic particle color changes
+- [x] Test performance with varying particle counts
+- [x] Create a graph to visualize your results
+- [x] Demonstrate your program in action
+
+!!! tip "What interoperability or "interop" means here"
+    OpenGL owns the VBOs (*for rendering*), OpenCL temporarily acquires those same buffers, writes new particle data, releases them back, and then OpenGL draws the updated data.
+
+---
+
+
+## Getting Started
+
+This project uses CMake as the build system to ensure it runs on Windows, macOS, and Linux. It's written in C++ 17 and uses OpenGL 4.1 and OpenCL 1.2, as these are the latest versions supported on macOS. OpenMP is used for kernel benchmarking. If you need to install any of these, detailed instructions for each operating system are provided below.
+
+#### Project Layout
+
+```text
+├─ src/             	# Libraries, utils, and shaders
+├─ .clang-format    	# Style Guide
+├─ .clangd              
+├─ CMakeLists.txt
+├─ main.cpp         	# You will edit this file
+└─ particles.cl     	# You will edit this file   
+```
+
+To build the project, run these commands from your terminal:
+
 ```bash
 cmake -B build
 cmake --build build
 ```
 
-### Run 
-```bash
-build\bin\Debug\OpenGLApp.exe
-./build/bin/OpenGLApp
-```
+??? info "Windows"
+    TODO
 
-### Controls
+??? info "MacOS"
+    TODO
 
----
-
-## Project layout
-
-Suggested structure for a Zensical docs site + code repo:
-
-```text
-├─ src/				# Libraries, Utils, and Shaders
-├─ .clang-format 	# Style Guide
-├─ .clangd				
-├─ CMakeLists.txt
-├─ main.cpp			<---- You will edit this file
-└─ particles.cl 	<---- You will edit this file	
-```
-
-!!! tip "How I write pages"
-    One page = one idea. Keep the main loop readable and link out to deeper dives (buffers, sync, kernel math).
+??? info "Linux"
+    TODO
 
 ---
 
-## The core idea
+## Requirements
 
-### Data per particle
-We’ll keep three arrays on the GPU:
+#### 1. Set Local Work-Group Size
 
-- Position: `float4 (x, y, z, 1)`
-- Velocity: `float4 (vx, vy, vz, 0)`
-- Color: `float4 (r, g, b, a)`
+Set the local work-group size (`LOCAL_SIZE`) to some fixed value. You can determine an appropriate value by setting `PRINTINFO` to true, which shows the maximum work-group size your GPU supports. Since this particle system uses simple calculations, pick a reasonable power of 2 (like 128 or 256) within that maximum, set it once, and leave it.
 
-!!! info "Why float4?"
-    OpenCL has `float4` built-in, and the extra component is handy for alignment and convenience.
+#### 2. Set Optimal Steps Per Frame
 
-### Simulation step (high level)
-Every frame (or fixed timestep):
+First, it's important to understand how the default program flow works
 
-1. Apply gravity
-2. Integrate velocity + position
-3. Handle collisions (sphere “bumpers” to start)
-4. Optionally update color based on “events” (like collisions or speed)
+??? "Program Execution Flow"
+	<figure markdown="span">
+	  ![Image title](images\interop_light.png#only-light)
+	  ![Image title](images\interop_dark.png#only-dark)
+			
+	<figcaption>
+	[Source][source]
+  [source]: https://web.engr.oregonstate.edu/~mjb/cs575/Handouts/opencl.opengl.vbo.1pp.pdf#page=2
+  "Modified from Mike Bailey"
+	</figcaption>
+
+	</figure>
+	
+Looking at the graph, once we set up the data on the OpenGL side, OpenCL acquires it. As explained in the OpenCL/GL Interoperability notes, synchronization is required because only one can hold the buffer at a time. OpenCL runs a kernel that reads an x, y, and z value, updates it according to projectile motion laws, writes it back to the buffer, and releases it. OpenGL then draws the buffer, and the cycle repeats.
+
+While this system works, it means only one physics update happens per visual frame. If you're locked to your monitor's refresh rate (*let's assume 60Hz*), you'll draw 60 frames per second, which is your framerate.
+
+But here's the catch: **Just because you can only draw 60 frames per second doesn't mean you can only compute 60 times per second.**
+
+`STEPS_PER_FRAME)` determines how many compute kernels are launched before drawing a frame. We want to know "How fast can my GPU update particles?" not "How many frames can I draw?" When `STEPS_PER_FRAME` is set higher than 1, you're running multiple physics updates per visual frame.
+
+Think of your GPU like a delivery truck. Every frame is a "trip", and every kernel compute is a "package".
+
+- **Make 1 delivery per trip** (`STEPS_PER_FRAME` = 1): You drive to one house, drop off a package, drive all the way back, then wait for the next scheduled trip. Inefficient!
+- **Make 10 deliveries per trip** (`STEPS_PER_FRAME` = 10): You drive out once, hit 10 houses, then come back. You're doing 10 times more work in the same wall-clock time.
+
+Your GPU has limits, so setting the value too high will hurt your framerate. Your goal is to find the value that stresses your GPU the most while maintaining fluid motion. An easy way is to increase the value until your FPS drops to around your monitor's refresh rate.
+
+!!! note "Test with your maximum particle count when finding this value."
+
+#### 3. Add Additional Bumper Object
+
+Your simulation must have at least **two** "bumpers" in it for the particles to bounce off of. Each bumper needs to be geometrically designed such that, given particles XYX, you can quickly tell if that particle is inside or outside the bumper. To get the bounce right, each bumper must know its outward-facing surface normal everywhere.
+
+What's the easiest shape for a bumper? A sphere! In computer graphics, we love spheres as they are computationally "nice". It's fast and straightforward to tell if something is inside or outside of a sphere. It's just as straightforward to determine a normal vector for a point on the surface of a sphere, too.
+
+It is OK to assume that the two bumpers are separate from each other; that is, a particle cannot collide with both at the same time.
+
+Your OpenCL `.cl` program must also handle bounces from your (>=2) bumpers. Be sure to draw these bumpers in your `.cpp` program in `#!cpp InitLists()` so that you can see where they are.
+
+!!! warning
+    Don't forget to update the `.cl` kernel code with the **same** values you set in your `.cpp` code.
+
+#### 4. Implement Dynamic Color Changes
+
+The sample OpenCL code does not retrieve the colors, modify them, or restore them. However, your `.cl` kernel needs to change the particles' colors dynamically. You could base this on position, velocity, time, bounce knowledge, etc. The way they change is up to you, but the color of each particle needs to change in some predictable way during the simulation.
+
+!!! note "OpenGL defines the red, green, and blue components of a color each as a floating-point value between `0.0` and `1.0`"
+
+#### 5. Test Performance
+
+Vary the total number of particles from something small-ish (~1024) to something big-ish (~1024*1024) in some increments that will look good on the graph.
+
+If you check the "show performance" box, you will see current, peak, and average measurements. Let the simulation run for a few seconds, and then write down your **Average** GigaParticles/Sec.
+
+#### 6. Show Results
+
+Make a table and a graph of Performance versus Total Number of Particles.
+
+??? note "That this will just be one graph with one curve."
+	TODO: Add graph example + python code to make one?
+
+!!! example "Bonus"
+    If you have some free time, run all the tests again with different work group sizes and compare the results.
+
+#### 7. Demonstrate your program in action
+
+Make a video of your program in action and be sure it's Unlisted. You can use any video-capture tool you want. If you have never done this before, I recommend Kaltura, for which OSU has a site license for you to use. You can access the Kaltura noteset here. If you use Kaltura, be sure your video is set to Unlisted. If it isn't, then we won't be able to see it, and we can't grade your project.
+
+Sites like YouTube also work. Just make sure your video is either public or unlisted, not **private**.
+
+!!! tip
+    Copy and paste your video link into an incognito tab and see if it plays. If it does, you should be good to go.
+
+
+#### 8. Commentary in the PDF file
+
+Your commentary PDF should include:
+
+1. A web link to the video showing your program in action -- be sure your video is Unlisted.
+2. What machine did you run this on?
+3. What predictable dynamic thing did you do with the particle colors (random changes are not good enough)?
+4. Include at least one screenshot of your project in action
+5. Show the table and graph.
+6. What patterns are you seeing in the performance curve?
+7. Why do you think the patterns look this way?
+8. What does that mean for the proper use of GPU parallel computing?
+
+---
+## Tips
+
+??? abstract "Explaining the Sample Code – TODO"
+	TODO: Add explaination
+
+??? abstract "Explaining the Kernel – Advancing a Particle by DT TODO: UPDATE CODE" 
+	In the sample code, Joe Parallel wanted to clean up the code by treating x, y, z positions and velocities as single variables instead of handling each component separately. To do this, he created custom types called `point`, `vector`, and `color` using typedef, all backed by OpenCL's `float4` type. (OpenCL doesn't have a `float3`, so `float4` is the next best option, the fourth component goes unused.) He also stored sphere definitions as a `float4`, packing the center coordinates and radius as x, y, z, r.
+
+	```cpp
+	typedef float4 point;   // x, y, z, 1.
+	typedef float4 vector;  // vx, vy, vz, 0.
+	typedef float4 color;   // r, g, b, a
+	typedef float4 sphere;  // x, y, z, r
+
+	constant sphere Sphere1 = (sphere)( -100., -800., 0., 600. );
+	```
+
+	Joe Parallel also stored the (x,y,z) acceleration of gravity in a `float4`:
+
+	```cpp
+	constant float4 G = (float4) (0.0, -9.8, 0.0, 0.0);
+	```
+
+	Now, given a particle's position `point p` and a particle's velocity `vector v`, here is how you advance it one time step:
+
+	```cpp
+	kernel
+	void
+	Particle( global point *dPobj, global vector *dVel, global color *dCobj )
+	{
+		int gid = get_global_id( 0 ); // particle number
+		
+		point p = dPobj[gid];
+		vector v = dVel[gid];
+		color c = dCobj[gid];
+		
+		point pp = p + v*DT + G*(point)( .5*DT*DT ); // p'
+		vector vp = v + G*DT; // v'
+		
+		pp.w = 1.0;
+		vp.w = 0.0;
+	```
+
+	Bouncing is handled by changing the velocity vector according to the outward-facing surface normal of the bumper at the point right before an impact:
+
+	```cpp
+		if( IsInsideSphere( pp, Sphere1 ) )
+		{
+			vp = BounceSphere( p, v, Sphere1 );
+			pp = p + vp*DT + G*(point)( .5*DT*DT );
+		}
+	```
+
+	And then do this again for the second bumper object. Assigning the new positions and velocities back into the global buffers happens like this:
+
+	```cpp
+		dPobj[gid] = pp;
+		dVel[gid] = vp;
+		dCobj[gid] = ????; // some change in color based on something 
+						// happening in the simulation
+	}
+	```
+
+
+	*Some utility functions you might find helpful:*
+
+	```cpp
+	bool
+	IsInsideSphere( point p, sphere s )
+	{
+		float r = fast_length( p.xyz - s.xyz );
+		return ( r < s.w );
+	}
+	```
+
+	```cpp
+	vector
+	Bounce( vector in, vector n )
+	{
+		n.w = 0.;
+		n = fast_normalize( n );
+		vector out = in - n*(vector)( 2.*dot(in.xyz, n.xyz) ); // angle of reflection equals
+																// angle of incidence
+		out.w = 0.;
+		return out;
+	}
+	```
+
+	```cpp
+	vector
+	BounceSphere( point p, vector in, sphere s )
+	{
+		vector n;
+		n.xyz = fast_normalize( p.xyz - s.xyz );
+		n.w = 0.;
+		return Bounce( in, n );
+	}
+	```
+	
+??? abstract "Getting an Error Message that says something about "UTF-8"?"
+	TODO: Find the actual source for this:
+	This is the problem where Windows text editors put 2 marks at the end of a text line instead of the expected one mark.
+	Refer to Slide #43 of the Project Notes noteset. 
+
+??? abstract "Determining Platform and Device Information"
+	TODO: Add stuff about VSYNC
+	
+	The sample code includes code from the printinfo program. This will show what OpenCL capabilities are on your system. The code will also attempt to pick the best OpenCL environment. Feel free to change this if you think it has picked the wrong one. 
 
 ---
 
-## OpenCL/OpenGL buffer sharing
+## Grading
 
-### What gets shared
-OpenGL creates VBOs like:
-- positions VBO (rendered as points / billboards)
-- colors VBO (optional)
+| Requirement | Points |
+| :-- | :-- |
+| Convincing particle motion | 20 |
+| Bouncing from at least two bumpers | 20 |
+| Predictable dynamic color changes (random changes are not good enough) | 30 |
+| Performance table and graph | 20 |
+| Commentary in the PDF file | 30 |
+| **Potential Total** | **120** |
 
-OpenCL gets a handle to those buffers so the kernel can write directly into them.
-
-### Create a shared VBO (sketch)
-```cpp
-// OpenGL: create VBO
-GLuint posVbo = 0;
-glGenBuffers(1, &posVbo);
-glBindBuffer(GL_ARRAY_BUFFER, posVbo);
-glBufferData(GL_ARRAY_BUFFER, numParticles * sizeof(float) * 4, nullptr, GL_DYNAMIC_DRAW);
-
-// OpenCL: wrap GL buffer
-cl_int err = CL_SUCCESS;
-cl_mem clPos = clCreateFromGLBuffer(clContext, CL_MEM_READ_WRITE, posVbo, &err);
-```
-
-!!! tip "Rule of thumb"
-    Let OpenGL “own” the buffer lifetime. OpenCL just borrows it via acquire/release each frame.
-
-### The per-frame or multiple “interop dance”
-```cpp
-// Acquire GL buffers for OpenCL
-clEnqueueAcquireGLObjects(queue, 1, &clPos, 0, nullptr, nullptr);
-
-// Run kernel(s) that update positions/colors
-// clSetKernelArg(...)
-// clEnqueueNDRangeKernel(...)
-
-// Release buffers back to OpenGL
-clEnqueueReleaseGLObjects(queue, 1, &clPos, 0, nullptr, nullptr);
-
-// Make sure CL is done before GL draws from the buffer
-clFinish(queue);
-```
-
-!!! warning "Sync matters"
-    If you see flicker, one-frame lag, or random garbage: it’s usually missing/incorrect sync around acquire/release (or you’re writing out of bounds).
-
----
-
-## The kernel (simple version)
-
-### Inputs/outputs
-- `dPos` (shared buffer): read+write
-- `dVel` (OpenCL-only buffer): read+write
-- `dCol` (shared buffer): optional write
-
-### Pseudocode
-```c
-kernel void StepParticles(
-    global float4* dPos,
-    global float4* dVel,
-    global float4* dCol,
-    float dt,
-    float4 gravity,
-    float4 sphere0,   // (cx, cy, cz, r)
-    float4 sphere1
-) {
-    int id = get_global_id(0);
-
-    float4 p = dPos[id];
-    float4 v = dVel[id];
-
-    // Integrate
-    v += gravity * dt;
-    p += v * dt;
-    p.w = 1.0f;
-    v.w = 0.0f;
-
-    // Collide with spheres (outline)
-    // if (insideSphere(p, sphere0)) v = bounce(...);
-    // if (insideSphere(p, sphere1)) v = bounce(...);
-
-    // Optional: color update
-    // dCol[id] = ...
-
-    dPos[id] = p;
-    dVel[id] = v;
-}
-```
-
-!!! note "Start with something boring"
-    First make particles fall correctly. Then add one sphere collision. Then add the second sphere. Then add colors.
-
----
+!!! success
+    The motion, bouncing, and colors of the particles need to be demonstrated via a video link. If it is a Kaltura video, be sure it has been set to **Unlisted**.
