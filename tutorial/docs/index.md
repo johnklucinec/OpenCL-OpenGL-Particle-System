@@ -12,7 +12,7 @@ Particle systems are used in games, films, and visual effects to simulate natura
 A particle system operates by controlling an extensive collection of individual 3D particles to exhibit some behavior. For a deeper technical overview, see [Mike Bailey's slide](https://web.engr.oregonstate.edu/~mjb/cs491/Handouts/particlesystems.2pp.pdf).
 
 !!! quote "Fun Fact"
-    Particle systems were first seen in [Star Trek II: The Wrath of Khan Genesis Demo](https://youtu.be/LNELRd7E3EQ?t=164), animated over 40 years ago. While the technology has evolved significantly since then, this groundbreaking sequence introduced the concept to computer graphics.
+    Particle systems were first seen in [Star Trek II: The Wrath of Khan Genesis Demo](https://www.youtube.com/watch?v=Qe9qSLYK5q4), animated over 40 years ago. While the technology has evolved significantly since then, this groundbreaking sequence introduced the concept to computer graphics.
 
 ---
 
@@ -49,20 +49,58 @@ This project uses CMake as the build system to ensure it runs on Windows, macOS,
 └─ particles.cl     	# You will edit this file   
 ```
 
-To build the project, run these commands from your terminal:
+??? info "Windows Installation"
+	!!! warning "Requires [Visual Studio](https://visualstudio.microsoft.com/) with the **Desktop development with C++** workload installed"
+	
+	### Install Dependencies
+	
+	Install [CMake](https://cmake.org/download/) (and add to PATH during install)
+	
+	### Build & Run
+	
+	```bash
+	cmake -B build
+	cmake --build build
+	
+	build\bin\Debug\OpenGLApp.exe
+	```
+	
+	!!! success "Quick rebuild: `cmake --build build && build\bin\Debug\OpenGLApp.exe`"
 
-```bash
-cmake -B build
-cmake --build build
-```
+??? info "MacOS Installation"
 
-??? info "Windows"
-    TODO
+	!!! warning "Assumes you have [Homebrew](https://brew.sh/) installed"
+	
+	### Configuration
+	
+	Uncomment the OpenMP line in `.clangd`:
+	
+	```yaml title=".clangd" linenums="17" hl_lines="2"
+	- "-IopenCL"
+	- # "-I/opt/homebrew/opt/libomp/include"  
+	- "-DIMGUIZMO_IMGUI_FOLDER=.."
+	```
+	
+	### Install Dependencies
+	
+	```bash
+	brew install cmake libomp
+	export OpenMP_ROOT=$(brew --prefix)/opt/libomp
+	```
+	
+	### Build & Run
+	
+	```bash
+	cmake -B build
+	cmake --build build
+	
+	./build/bin/OpenGLApp
+	```
+	
+	!!! success "Quick rebuild: `cmake --build build && ./build/bin/OpenGLApp`"
+	
 
-??? info "MacOS"
-    TODO
-
-??? info "Linux"
+??? info "Linux Installation"
     TODO
 
 ---
@@ -168,10 +206,86 @@ Your commentary PDF should include:
 ---
 ## Tips
 
-??? abstract "Explaining the Sample Code – TODO"
-	TODO: Add explaination
+??? abstract "Explaining the Sample Code"
+	Joe Parallel has already set up a complete OpenCL/OpenGL particle system for you. The sample code allocates the data, connects it to the GPU, talks to the OpenCL kernel each frame, and then draws the particles.
+	
+	#### The Particle Data
+	
+	Each particle has a position, a color, and a velocity, all stored as 4-component floats:
+	
+	```cpp
+	struct xyzw { float x, y, z, w; };   // positions and velocities
+	struct rgba { float r, g, b, a; };   // colors
+	```
+	
+	Joe reuses `xyzw` for both positions and velocities (it is just four floats). The `w` in positions is the homogeneous coordinate (almost always 1.0). The `a` in colors is alpha (transparency), which is set but not used by the shaders right now.
+	
+	#### Where the Data Lives
+	
+	There are three main pieces of particle storage:
+	
+	- An OpenGL VBO for positions: `#!lua particle.posGL`
+	- An OpenGL VBO for colors: `#!lua particle.colorGL`
+	- A host-side array for velocities: `#!lua particle.velHost`, with a matching OpenCL buffer `#!lua particle.velCL`
+	
+	The position and color VBOs are also turned into OpenCL buffers (`#!lua particle.posCL`, `#!lua particle.colorCL`) using `clCreateFromGLBuffer`. That means OpenCL and OpenGL share the same memory for positions and colors, so there is no copying back and forth.
+	
+	#### How Particles Get Their Starting Values
+	
+	The function `ResetParticles()` is Joe's “initial conditions” step. It:
+	
+	1. Maps the position VBO with `glMapBuffer`, fills GPU memory directly with random `(x,y,z)` positions in a 3D box, and sets `w = 1.`
+	2. Maps the color VBO, fills GPU memory with random bright colors, and sets `a = 1.`
+	3. Fills the host velocity array `#!lua particle.velHost` with random `(vx, vy, vz)` values, then uses `clEnqueueWriteBuffer` to copy those velocities into the OpenCL buffer `#!lua particle.velCL`.
+	
+	At this point, all particles have a randomized position, color, and velocity, and both APIs agree on where that data lives.
+	
+	#### How OpenCL and OpenGL Share the Work
+	
+	Initialization in `InitCL()` does the heavy lifting Joe does not want you to worry about:
+	
+	- Picks an OpenCL device and creates a context that can share with the current OpenGL context.
+	- Creates the OpenCL views of the OpenGL position and color VBOs with `clCreateFromGLBuffer`.
+	- Creates the pure-OpenCL velocity buffer, builds the `Particle` kernel from `particles.cl`, and sets up the kernel arguments: position buffer, velocity buffer, color buffer, and the time step `dt`.
+	
+	After that, the compute side is ready to run; you do not need to change any of this setup to experiment with the kernel.
+	
+	#### What Happens Each Frame
+	
+	Every frame, `Animate()` runs the simulation step before anything gets drawn:
+	
+	1. **Pause Check**: If the app is paused, nothing happens.
+	2. **Give Buffers to OpenCL**: `clEnqueueAcquireGLObjects` tells OpenGL to stand back while OpenCL updates the shared position and color buffers.
+	3. **Set the Time Step**: A small `dt` is computed (`BASE_DT / STEPS_PER_FRAME`) and passed as kernel argument 3.
+	4. **Run the Kernel**: The `Particle` kernel is launched `STEPS_PER_FRAME` times over all `NUM_PARTICLES`. Each work-item handles one particle and updates its position, velocity, and (optionally) color.
+	5. **Give Buffers Back to OpenGL**: `clEnqueueReleaseGLObjects` hands the shared buffers back, and `clFinish` waits for everything to complete.
+	
+	By the time this function returns, the OpenGL VBOs contain the new particle positions and colors ready to be drawn.
+	
+	#### How the Scene Gets Drawn
+	
+	The `Display()` function handles all of the drawing:
+	
+	- Sets up the camera and projection (perspective or orthographic).
+	- Draws the wireframe spheres that act as bumpers for the particles (the same spheres are defined in the OpenCL kernel for collision).
+	- Binds the particle VAO and calls `glDrawArrays(GL_POINTS, 0, NUM_PARTICLES)` to draw every particle as a point, using the shared position and color data.s
+	- Renders the ImGui UI and performance overlay on top.
+	
+	So, by the time drawing happens, no CPU-side loops are needed to touch individual particles. Everything is done on the GPU.
+	
+	#### What Is Already Done
+	
+	Joe Parallel has already:
+	
+	- Set up the OpenGL window, shaders, VAOs, and VBOs.
+	- Created and connected the OpenCL context to those buffers.
+	- Randomized all initial positions, colors, and velocities.
+	- Written the main loop that calls the `Particle` kernel every frame and then draws the result.
 
-??? abstract "Explaining the Kernel – Advancing a Particle by DT TODO: UPDATE CODE" 
+??? abstract "Explaining the Kernel – Advancing a Particle by DT" 
+
+	TODO: UPDATE CODE
+	
 	In the sample code, Joe Parallel wanted to clean up the code by treating x, y, z positions and velocities as single variables instead of handling each component separately. To do this, he created custom types called `point`, `vector`, and `color` using typedef, all backed by OpenCL's `float4` type. (OpenCL doesn't have a `float3`, so `float4` is the next best option, the fourth component goes unused.) He also stored sphere definitions as a `float4`, packing the center coordinates and radius as x, y, z, r.
 
 	```cpp
