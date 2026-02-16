@@ -49,14 +49,18 @@ This project uses CMake as the build system to ensure it runs on Windows, macOS,
 └─ particles.cl     	# You will edit this file   
 ```
 
+---
+
+#### Platform Setup
+
 ??? info "Windows Installation"
 	!!! warning "Requires [Visual Studio](https://visualstudio.microsoft.com/) with the **Desktop development with C++** workload installed"
 	
-	### Install Dependencies
+	**Install Dependencies**
 	
 	Install [CMake](https://cmake.org/download/) (and add to PATH during install)
 	
-	### Build & Run
+	**Build & Run**
 	
 	```bash
 	cmake -B build
@@ -71,7 +75,7 @@ This project uses CMake as the build system to ensure it runs on Windows, macOS,
 
 	!!! warning "Assumes you have [Homebrew](https://brew.sh/) installed"
 	
-	### Configuration
+	**Configuration**
 	
 	Uncomment the OpenMP line in `.clangd`:
 	
@@ -81,14 +85,14 @@ This project uses CMake as the build system to ensure it runs on Windows, macOS,
 	- "-DIMGUIZMO_IMGUI_FOLDER=.."
 	```
 	
-	### Install Dependencies
+	**Install Dependencies**
 	
 	```bash
 	brew install cmake libomp
 	export OpenMP_ROOT=$(brew --prefix)/opt/libomp
 	```
 	
-	### Build & Run
+	**Build & Run**
 	
 	```bash
 	cmake -B build
@@ -110,6 +114,8 @@ This project uses CMake as the build system to ensure it runs on Windows, macOS,
 #### 1. Set Local Work-Group Size
 
 Set the local work-group size (`LOCAL_SIZE`) to some fixed value. You can determine an appropriate value by setting `PRINTINFO` to true, which shows the maximum work-group size your GPU supports. Since this particle system uses simple calculations, pick a reasonable power of 2 (like 128 or 256) within that maximum, set it once, and leave it.
+
+___
 
 #### 2. Set Optimal Steps Per Frame
 
@@ -145,6 +151,8 @@ Your GPU has limits, so setting the value too high will hurt your framerate. You
 
 !!! note "Test with your maximum particle count when finding this value."
 
+---
+
 #### 3. Add Additional Bumper Object
 
 Your simulation must have at least **two** "bumpers" in it for the particles to bounce off of. Each bumper needs to be geometrically designed such that, given particles XYX, you can quickly tell if that particle is inside or outside the bumper. To get the bounce right, each bumper must know its outward-facing surface normal everywhere.
@@ -158,17 +166,23 @@ Your OpenCL `.cl` program must also handle bounces from your (>=2) bumpers. Be s
 !!! warning
     Don't forget to update the `.cl` kernel code with the **same** values you set in your `.cpp` code.
 
+--- 
+
 #### 4. Implement Dynamic Color Changes
 
 The sample OpenCL code does not retrieve the colors, modify them, or restore them. However, your `.cl` kernel needs to change the particles' colors dynamically. You could base this on position, velocity, time, bounce knowledge, etc. The way they change is up to you, but the color of each particle needs to change in some predictable way during the simulation.
 
 !!! note "OpenGL defines the red, green, and blue components of a color each as a floating-point value between `0.0` and `1.0`"
 
+---
+
 #### 5. Test Performance
 
 Vary the total number of particles from something small-ish (~1024) to something big-ish (~1024*1024) in some increments that will look good on the graph.
 
 If you check the "show performance" box, you will see current, peak, and average measurements. Let the simulation run for a few seconds, and then write down your **Average** GigaParticles/Sec.
+
+---
 
 #### 6. Show Results
 
@@ -180,6 +194,8 @@ Make a table and a graph of Performance versus Total Number of Particles.
 !!! example "Bonus"
     If you have some free time, run all the tests again with different work group sizes and compare the results.
 
+---
+
 #### 7. Demonstrate your program in action
 
 Make a video of your program in action and be sure it's Unlisted. You can use any video-capture tool you want. If you have never done this before, I recommend Kaltura, for which OSU has a site license for you to use. You can access the Kaltura noteset here. If you use Kaltura, be sure your video is set to Unlisted. If it isn't, then we won't be able to see it, and we can't grade your project.
@@ -189,6 +205,7 @@ Sites like YouTube also work. Just make sure your video is either public or unli
 !!! tip
     Copy and paste your video link into an incognito tab and see if it plays. If it does, you should be good to go.
 
+---
 
 #### 8. Commentary in the PDF file
 
@@ -207,9 +224,15 @@ Your commentary PDF should include:
 ## Tips
 
 ??? abstract "Explaining the Sample Code"
+	<div style="display:none;">
+	### Explaining Sample Code
+	</div>
+	
 	Joe Parallel has already set up a complete OpenCL/OpenGL particle system for you. The sample code allocates the data, connects it to the GPU, talks to the OpenCL kernel each frame, and then draws the particles.
 	
-	#### The Particle Data
+	---
+	
+	**The Particle Data**
 	
 	Each particle has a position, a color, and a velocity, all stored as 4-component floats:
 	
@@ -220,7 +243,9 @@ Your commentary PDF should include:
 	
 	Joe reuses `xyzw` for both positions and velocities (it is just four floats). The `w` in positions is the homogeneous coordinate (almost always 1.0). The `a` in colors is alpha (transparency), which is set but not used by the shaders right now.
 	
-	#### Where the Data Lives
+	---
+	
+	**Where the Data Lives**
 	
 	There are three main pieces of particle storage:
 	
@@ -230,7 +255,9 @@ Your commentary PDF should include:
 	
 	The position and color VBOs are also turned into OpenCL buffers (`#!lua particle.posCL`, `#!lua particle.colorCL`) using `clCreateFromGLBuffer`. That means OpenCL and OpenGL share the same memory for positions and colors, so there is no copying back and forth.
 	
-	#### How Particles Get Their Starting Values
+	---
+	
+	**How Particles Get Their Starting Values**
 	
 	The function `ResetParticles()` is Joe's “initial conditions” step. It:
 	
@@ -240,7 +267,9 @@ Your commentary PDF should include:
 	
 	At this point, all particles have a randomized position, color, and velocity, and both APIs agree on where that data lives.
 	
-	#### How OpenCL and OpenGL Share the Work
+	---
+	
+	**How OpenCL and OpenGL Share the Work**
 	
 	Initialization in `InitCL()` does the heavy lifting Joe does not want you to worry about:
 	
@@ -250,7 +279,9 @@ Your commentary PDF should include:
 	
 	After that, the compute side is ready to run; you do not need to change any of this setup to experiment with the kernel.
 	
-	#### What Happens Each Frame
+	---
+	
+	**What Happens Each Frame**
 	
 	Every frame, `Animate()` runs the simulation step before anything gets drawn:
 	
@@ -262,7 +293,9 @@ Your commentary PDF should include:
 	
 	By the time this function returns, the OpenGL VBOs contain the new particle positions and colors ready to be drawn.
 	
-	#### How the Scene Gets Drawn
+	---
+	
+	**How the Scene Gets Drawn**
 	
 	The `Display()` function handles all of the drawing:
 	
@@ -273,7 +306,9 @@ Your commentary PDF should include:
 	
 	So, by the time drawing happens, no CPU-side loops are needed to touch individual particles. Everything is done on the GPU.
 	
-	#### What Is Already Done
+	---
+	
+	**What Is Already Done**
 	
 	Joe Parallel has already:
 	
@@ -283,7 +318,10 @@ Your commentary PDF should include:
 	- Written the main loop that calls the `Particle` kernel every frame and then draws the result.
 
 ??? abstract "Explaining the Kernel – Advancing a Particle by DT" 
-
+	<div style="display:none;">
+	### Explaining Kernel
+	</div>
+	
 	TODO: UPDATE CODE
 	
 	In the sample code, Joe Parallel wanted to clean up the code by treating x, y, z positions and velocities as single variables instead of handling each component separately. To do this, he created custom types called `point`, `vector`, and `color` using typedef, all backed by OpenCL's `float4` type. (OpenCL doesn't have a `float3`, so `float4` is the next best option, the fourth component goes unused.) He also stored sphere definitions as a `float4`, packing the center coordinates and radius as x, y, z, r.
@@ -343,7 +381,8 @@ Your commentary PDF should include:
 	}
 	```
 
-
+	---
+	
 	*Some utility functions you might find helpful:*
 
 	```cpp
@@ -380,11 +419,19 @@ Your commentary PDF should include:
 	```
 	
 ??? abstract "Getting an Error Message that says something about "UTF-8"?"
+	<div style="display:none;">
+	### "UTF-8" Error?
+	</div>
+	
 	TODO: Find the actual source for this:
 	This is the problem where Windows text editors put 2 marks at the end of a text line instead of the expected one mark.
 	Refer to Slide #43 of the Project Notes noteset. 
 
 ??? abstract "Determining Platform and Device Information"
+	<div style="display:none;">
+	### Device Information
+	</div>
+	
 	TODO: Add stuff about VSYNC
 	
 	The sample code includes code from the printinfo program. This will show what OpenCL capabilities are on your system. The code will also attempt to pick the best OpenCL environment. Feel free to change this if you think it has picked the wrong one. 
