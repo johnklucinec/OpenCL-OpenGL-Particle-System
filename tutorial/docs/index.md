@@ -147,7 +147,7 @@ Think of your GPU like a delivery truck. Every frame is a "trip", and every kern
 - **Make 1 delivery per trip** (`STEPS_PER_FRAME` = 1): You drive to one house, drop off a package, drive all the way back, then wait for the next scheduled trip. Inefficient!
 - **Make 10 deliveries per trip** (`STEPS_PER_FRAME` = 10): You drive out once, hit 10 houses, then come back. You're doing 10 times more work in the same wall-clock time.
 
-Your GPU has limits, so setting the value too high will hurt your framerate. Your goal is to find the value that stresses your GPU the most while maintaining fluid motion. An easy way is to increase the value until your FPS drops to around your monitor's refresh rate.
+Your GPU has limits, so setting the value too high will hurt your framerate. Your goal is to find the value that stresses your GPU the most while maintaining fluid motion. An easy way is to increase the value until your FPS drops to around your monitor's refresh rate. Or just pick a really high value (e.g., 1024), and see what happens. You will be running tests with both `STEPS_PER_FRAME = 1;` and `STEPS_PER_FRAME = ???;`, where ??? is the value you chose. 
 
 !!! note "Test with your maximum particle count when finding this value."
 
@@ -172,6 +172,8 @@ Your OpenCL `.cl` program must also handle bounces from your (>=2) bumpers. Be s
 
 The sample OpenCL code does not retrieve the colors, modify them, or restore them. However, your `.cl` kernel needs to change the particles' colors dynamically. You could base this on position, velocity, time, bounce knowledge, etc. The way they change is up to you, but the color of each particle needs to change in some predictable way during the simulation.
 
+I recommend reading [Explaining the Kernel](#explaining-kernel), as it explains the kernel code that you will be updating. Plus, it shows how the `color` type is defined and how color values are read from and written back to the global buffer.
+
 !!! note "OpenGL defines the red, green, and blue components of a color each as a floating-point value between `0.0` and `1.0`"
 
 ---
@@ -186,14 +188,50 @@ If you check the "show performance" box, you will see current, peak, and average
 
 #### 6. Show Results
 
-Make a table and a graph of Performance versus Total Number of Particles.
+Create a table and a graph of Performance vs. Total Number of Particles. Test with at least five different particle counts, ranging from something small (e.g., 1024) to something large (e.g., 1024 × 8192). Run the full set of tests under both `STEPS_PER_FRAME = 1;` and `STEPS_PER_FRAME = ???;`, where ??? is the value you chose. 
 
 ??? note "That this will just be one graph with one curve."
 	TODO: Add graph example + python code to make one?
 
-!!! example "Bonus"
-    If you have some free time, run all the tests again with different work group sizes and compare the results.
-
+	??? example "Want to make a graph with code?"
+	
+		I used [Python Playground](https://python-playground.com/) to make my graph. Here is the code I used if you want to do something similar. You might have to change the range and tick values to suit your results better. 
+		
+		```python
+		import matplotlib.pyplot as plt
+		import numpy as np
+		
+		# ─── FILL IN YOUR DATA HERE ───────────────────────────────────────────────────
+		PARTICLES_1     = [1, 512, 1024, 2048, 3172, 4096, 5120, 6144, 7168, 8192]  # x1024
+		GPS_1           = [0.008, 2.95, 4.68, 6.25, 6.74, 7.27, 6.95, 6.35, 9.06, 8.20]
+		STEPS_LABEL_1   = "1 steps/frame"
+		
+		PARTICLES_2     = [1, 512, 1024, 2048, 3172, 4096, 5120, 6144, 7168, 8192]  # x1024
+		GPS_2           = [0.033, 5.93, 6.87, 6.84, 6.89, 8.40, 8.42, 8.65, 8.85, 9.04]
+		STEPS_LABEL_2   = "5 step/frame"
+		# ──────────────────────────────────────────────────────────────────────────────
+		
+		fig, ax = plt.subplots(figsize=(8, 5))
+		
+		ax.plot(PARTICLES_1, GPS_1, marker='D', markersize=5,
+		        color='orange', label=STEPS_LABEL_1)
+		
+		ax.plot(PARTICLES_2, GPS_2, marker='D', markersize=5,
+		        color='blue', label=STEPS_LABEL_2)
+		
+		ax.set_xlabel("Number of Particles (x1024)")
+		ax.set_ylabel("GigaParticles / Second")
+		ax.set_xlim(0, 8192)    # Bottom range
+		ax.set_ylim(0.0, 10.0)  # Left range
+		ax.set_xticks([0, 2048, 4096, 6144, 8192])                      # Bottom ticks
+		ax.set_yticks([round(v, 2) for v in np.arange(0.0, 10.0, 1.0)]) # Left ticks
+		ax.yaxis.set_major_formatter(plt.FormatStrFormatter('%.2f'))
+		ax.grid(axis='y', linestyle='-', alpha=0.5)
+		ax.legend()
+		
+		plt.tight_layout()
+		plt.show()
+		```
 ---
 
 #### 7. Demonstrate your program in action
@@ -248,22 +286,24 @@ Your commentary PDF should include:
 	**Where the Data Lives**
 	
 	There are three main pieces of particle storage:
-	
-	- An OpenGL VBO for positions: `#!lua particle.posGL`
-	- An OpenGL VBO for colors: `#!lua particle.colorGL`
-	- A host-side array for velocities: `#!lua particle.velHost`, with a matching OpenCL buffer `#!lua particle.velCL`
-	
-	The position and color VBOs are also turned into OpenCL buffers (`#!lua particle.posCL`, `#!lua particle.colorCL`) using `clCreateFromGLBuffer`. That means OpenCL and OpenGL share the same memory for positions and colors, so there is no copying back and forth.
+	```as3
+	particle.posGL   // An OpenGL VBO for positions
+	particle.colorGL // An OpenGL VBO for colors
+	particle.velHost // A host-side array for velocities
+	particle.velCL   // A matching OpenCL buffer for velocities
+	```
+
+	The position and color VBOs are also turned into OpenCL buffers (`#!as3 particle.posCL`, `#!as3 particle.colorCL`) using `clCreateFromGLBuffer`. That means OpenCL and OpenGL share the same memory for positions and colors, so there is no copying back and forth.
 	
 	---
 	
 	**How Particles Get Their Starting Values**
 	
 	The function `ResetParticles()` is Joe's “initial conditions” step. It:
-	
+  
 	1. Maps the position VBO with `glMapBuffer`, fills GPU memory directly with random `(x,y,z)` positions in a 3D box, and sets `w = 1.`
 	2. Maps the color VBO, fills GPU memory with random bright colors, and sets `a = 1.`
-	3. Fills the host velocity array `#!lua particle.velHost` with random `(vx, vy, vz)` values, then uses `clEnqueueWriteBuffer` to copy those velocities into the OpenCL buffer `#!lua particle.velCL`.
+	3. Fills the host velocity array `#!as3 particle.velHost` with random `(vx, vy, vz)` values, then uses `clEnqueueWriteBuffer` to copy those velocities into the OpenCL buffer `#!as3 particle.velCL`.
 	
 	At this point, all particles have a randomized position, color, and velocity, and both APIs agree on where that data lives.
 	
@@ -305,25 +345,14 @@ Your commentary PDF should include:
 	- Renders the ImGui UI and performance overlay on top.
 	
 	So, by the time drawing happens, no CPU-side loops are needed to touch individual particles. Everything is done on the GPU.
-	
-	---
-	
-	**What Is Already Done**
-	
-	Joe Parallel has already:
-	
-	- Set up the OpenGL window, shaders, VAOs, and VBOs.
-	- Created and connected the OpenCL context to those buffers.
-	- Randomized all initial positions, colors, and velocities.
-	- Written the main loop that calls the `Particle` kernel every frame and then draws the result.
 
-??? abstract "Explaining the Kernel – Advancing a Particle by DT" 
+??? abstract "Explaining the Kernel" 
 	<div style="display:none;">
 	### Explaining Kernel
 	</div>
 	
-	TODO: UPDATE CODE
-	
+	**Advancing a Particle by DT**
+
 	In the sample code, Joe Parallel wanted to clean up the code by treating x, y, z positions and velocities as single variables instead of handling each component separately. To do this, he created custom types called `point`, `vector`, and `color` using typedef, all backed by OpenCL's `float4` type. (OpenCL doesn't have a `float3`, so `float4` is the next best option, the fourth component goes unused.) He also stored sphere definitions as a `float4`, packing the center coordinates and radius as x, y, z, r.
 
 	```cpp
@@ -332,13 +361,13 @@ Your commentary PDF should include:
 	typedef float4 color;   // r, g, b, a
 	typedef float4 sphere;  // x, y, z, r
 
-	constant sphere Sphere1 = (sphere)( -100., -800., 0., 600. );
+	Spheres[0] = (sphere)(-100.0, -800.0, 0.0, 600.0);
 	```
 
 	Joe Parallel also stored the (x,y,z) acceleration of gravity in a `float4`:
 
 	```cpp
-	constant float4 G = (float4) (0.0, -9.8, 0.0, 0.0);
+	const vector G	= (vector)(0.0, -9.8, 0.0, 0.0);
 	```
 
 	Now, given a particle's position `point p` and a particle's velocity `vector v`, here is how you advance it one time step:
@@ -348,73 +377,69 @@ Your commentary PDF should include:
 	void
 	Particle( global point *dPobj, global vector *dVel, global color *dCobj )
 	{
-		int gid = get_global_id( 0 ); // particle number
-		
-		point p = dPobj[gid];
-		vector v = dVel[gid];
-		color c = dCobj[gid];
-		
-		point pp = p + v*DT + G*(point)( .5*DT*DT ); // p'
-		vector vp = v + G*DT; // v'
-		
-		pp.w = 1.0;
-		vp.w = 0.0;
+	int gid = get_global_id( 0 ); // particle number
+	
+	point	p = dPobj[gid];
+	vector	v = dVel[gid];
+	color	c = dCobj[gid];
+	
+	point  pp = p + v*DT + G*(point)(0.5 * DT * DT); 	// p'
+	vector vp = v + G*DT; 								// v'
+	
+	pp.w = 1.0;
+	vp.w = 0.0;
 	```
 
 	Bouncing is handled by changing the velocity vector according to the outward-facing surface normal of the bumper at the point right before an impact:
 
 	```cpp
-		if( IsInsideSphere( pp, Sphere1 ) )
-		{
-			vp = BounceSphere( p, v, Sphere1 );
-			pp = p + vp*DT + G*(point)( .5*DT*DT );
-		}
+	// Test against the first sphere here:
+	if(IsInsideSphere(pp, Spheres[0]))
+	{
+	  vp = BounceSphere(p, v, Spheres[0]);
+	  pp = p + vp * DT + G * (point)(0.5 * DT * DT);
+	}
 	```
 
 	And then do this again for the second bumper object. Assigning the new positions and velocities back into the global buffers happens like this:
 
 	```cpp
-		dPobj[gid] = pp;
-		dVel[gid] = vp;
-		dCobj[gid] = ????; // some change in color based on something 
+	dPobj[gid] = pp;
+	dVel[gid]  = vp;
+	dCobj[gid] = ????;	// Some change in color based on something 
 						// happening in the simulation
-	}
 	```
 
 	---
 	
-	*Some utility functions you might find helpful:*
+	**Some utility functions you might find helpful:**
 
 	```cpp
-	bool
-	IsInsideSphere( point p, sphere s )
+	bool IsInsideSphere(point p, sphere s)
 	{
-		float r = fast_length( p.xyz - s.xyz );
-		return ( r < s.w );
+	  float 	r	= fast_length(p.xyz - s.xyz);
+	  return	(r < s.w);
 	}
 	```
 
 	```cpp
-	vector
-	Bounce( vector in, vector n )
+	vector BounceSphere(point p, vector v, sphere s)
 	{
-		n.w = 0.;
-		n = fast_normalize( n );
-		vector out = in - n*(vector)( 2.*dot(in.xyz, n.xyz) ); // angle of reflection equals
-																// angle of incidence
-		out.w = 0.;
-		return out;
+	  vector	n;
+	  n.xyz		= fast_normalize(p.xyz - s.xyz);	
+	  n.w		= 0.0;
+	  return	Bounce(v, n);
 	}
 	```
 
 	```cpp
-	vector
-	BounceSphere( point p, vector in, sphere s )
+	vector Bounce(vector in, vector n)
 	{
-		vector n;
-		n.xyz = fast_normalize( p.xyz - s.xyz );
-		n.w = 0.;
-		return Bounce( in, n );
+	  n.w			= 0.0;
+	  n 			= fast_normalize(n);
+	  vector out 	= in - n*(vector)(2.0 * dot(in.xyz, n.xyz));	// angle of reflection equals angle of incidence
+	  out.w 		= 0.0;
+	  return 		out;
 	}
 	```
 	
