@@ -87,14 +87,14 @@ This project uses CMake as the build system to ensure it runs on Windows, macOS,
 	
 	**Install Dependencies**
 	
-	```bash
+	```
 	brew install cmake libomp
 	export OpenMP_ROOT=$(brew --prefix)/opt/libomp
 	```
 	
 	**Build & Run**
 	
-	```bash
+	```
 	cmake -B build
 	cmake --build build
 	
@@ -188,11 +188,18 @@ If you check the "show performance" box, you will see current, peak, and average
 
 #### 6. Show Results
 
-Create a table and a graph of Performance vs. Total Number of Particles. Test with at least five different particle counts, ranging from something small (e.g., 1024) to something large (e.g., 1024 × 8192). Run the full set of tests under both `STEPS_PER_FRAME = 1;` and `STEPS_PER_FRAME = ???;`, where ??? is the value you chose. 
+Create a table and a graph of Performance vs. Total Number of Particles. Test with at least five different particle counts, ranging from something small (e.g., 1024) to something large (e.g., 1024 × 8192). Run the full set of tests under both `STEPS_PER_FRAME = 1;` and `STEPS_PER_FRAME = ???;`, where `???` is the value you chose. 
 
-??? note "That this will just be one graph with one curve."
-	TODO: Add graph example + python code to make one?
+??? note "Example Graph"
+	<figure markdown="span">
+	  ![Image title](images\graph.png)
+			
+	<figcaption>
+	Performance Graph
+	</figcaption>
 
+	</figure>
+	
 	??? example "Want to make a graph with code?"
 	
 		I used [Python Playground](https://python-playground.com/) to make my graph. Here is the code I used if you want to do something similar. You might have to change the range and tick values to suit your results better. 
@@ -443,23 +450,54 @@ Your commentary PDF should include:
 	}
 	```
 	
-??? abstract "Getting an Error Message that says something about "UTF-8"?"
+??? abstract "Getting low GigaParticles / Second?"
 	<div style="display:none;">
-	### "UTF-8" Error?
+	### Low GigaParticles?
 	</div>
 	
-	TODO: Find the actual source for this:
-	This is the problem where Windows text editors put 2 marks at the end of a text line instead of the expected one mark.
-	Refer to Slide #43 of the Project Notes noteset. 
+	If your GigaParticles per Second are noticeably lower than Joe Graphics' results, that's completely normal, especially on a laptop. For example, a MacBook Air M4 will typically only hit around ~1.3 GigaParticles/Second with one million particles, and it'll be even lower without a dedicated GPU.
+
+	A good first step is to double-check that `LOCAL_SIZE` and `STEPS_PER_FRAME` are configured correctly. VSYNC can also drag your scores down a bit, particularly when `STEPS_PER_FRAME` is set to 1.
+	
+	That said, if you're consistently under 1.0, you can switch the benchmark from GigaParticles/Second to MegaParticles/Second. In `PerformanceOverlay()`, change:
+	
+	```cpp
+	float gigaParticlesPerSec = (perf.elapsedTime > 0.0f) ? (float)NUM_PARTICLES / perf.elapsedTime / 1000000000.0f : 0.0f;
+	```
+	
+	to:
+	
+	```cpp
+	float gigaParticlesPerSec = (perf.elapsedTime > 0.0f) ? (float)NUM_PARTICLES / perf.elapsedTime / 100000000.0f : 0.0f;
+	```
+	
+	The only change is the divisor, which went from `1,000,000,000` down to `100,000,000`.
+	
+	??? example "Joe Graphics' Specs"
+ 		The components used to produce the benchmark results shown above.
+		
+		```yaml
+		Ryzen 7 9800X3D @ 4.40GHz
+		RTX 3080
+		DDR5 6000 CL30
+		```
+
 
 ??? abstract "Determining Platform and Device Information"
 	<div style="display:none;">
 	### Device Information
 	</div>
 	
-	TODO: Add stuff about VSYNC
-	
 	The sample code includes code from the printinfo program. This will show what OpenCL capabilities are on your system. The code will also attempt to pick the best OpenCL environment. Feel free to change this if you think it has picked the wrong one. 
+	
+	To enable printinfo, set `PRINTINFO = true;`
+	
+	---
+	
+	Don't know your monitors refresh rate? Try enabling VSYNC. 
+	To enable VSYNC, set `VSYNC = true`;
+	
+	!!! info "VSYNC sometimes locks to double your screen's refresh rate."
 
 ---
 
