@@ -265,9 +265,13 @@ custom_checkbox = true
 [project.markdown_extensions.md_in_html]
 [project.markdown_extensions.pymdownx.blocks.caption]
 
-#Tooltips
+# Tooltips
 [project.markdown_extensions.abbr]
 [project.markdown_extensions.pymdownx.snippets]
 
+# Emoji (yes this is important)
+[project.markdown_extensions.pymdownx.emoji]
+emoji_index = "zensical.extensions.emoji.twemoji"
+emoji_generator = "zensical.extensions.emoji.to_svg"
 
 [project.markdown_extensions.pymdownx.inlinehilite]

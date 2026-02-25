@@ -62,7 +62,7 @@ This project uses CMake as the build system to ensure it runs on Windows, macOS,
 	
 	**Build & Run**
 	
-	```bash
+	```
 	cmake -B build
 	cmake --build build
 	
@@ -75,21 +75,33 @@ This project uses CMake as the build system to ensure it runs on Windows, macOS,
 
 	!!! warning "Assumes you have [Homebrew](https://brew.sh/) installed"
 	
-	**Configuration**
+	**Install Dependencies**
 	
-	Uncomment the OpenMP line in `.clangd`:
-	
-	```yaml title=".clangd" linenums="17" hl_lines="2"
-	- "-IopenCL"
-	- # "-I/opt/homebrew/opt/libomp/include"  
-	- "-DIMGUIZMO_IMGUI_FOLDER=.."
 	```
+	brew install cmake
+	```
+	
+	**Build & Run**
+	
+	```
+	cmake -B build
+	cmake --build build
+	
+	./build/bin/OpenGLApp
+	```
+	
+	!!! success "Quick rebuild: `cmake --build build && ./build/bin/OpenGLApp`"
+
+
+??? info "Linux Installation"
+
+	!!! warning "These instructions are for Ubuntu/Debian"
 	
 	**Install Dependencies**
 	
 	```
-	brew install cmake libomp
-	export OpenMP_ROOT=$(brew --prefix)/opt/libomp
+	sudo apt install cmake
+	sudo apt-get install libgl1-mesa-dev xorg-dev
 	```
 	
 	**Build & Run**
@@ -103,10 +115,33 @@ This project uses CMake as the build system to ensure it runs on Windows, macOS,
 	
 	!!! success "Quick rebuild: `cmake --build build && ./build/bin/OpenGLApp`"
 	
+	??? failure "If you are on NVIDIA, make sure your graphics drivers are up-to-date"
 
-??? info "Linux Installation"
-    TODO
+		**Remove old drivers**
 
+		```bash
+		sudo apt-get remove --purge '^nvidia-.*'
+		sudo apt-get remove --purge '^libnvidia-.*'
+		sudo apt autoremove && sudo apt autoclean
+		```
+
+		**Install NVIDIA 590**
+
+		```bash
+		sudo add-apt-repository ppa:graphics-drivers/ppa
+		sudo apt update
+		sudo apt install nvidia-driver-590
+		sudo reboot
+		```
+
+		**Verify**
+
+		```bash
+		nvidia-smi
+		clinfo
+		```
+
+		> If `clinfo` is not found: `sudo apt install clinfo`
 ---
 
 ## Requirements
@@ -136,18 +171,20 @@ First, it's important to understand how the default program flow works
 	
 Looking at the graph, once we set up the data on the OpenGL side, OpenCL acquires it. As explained in the OpenCL/GL Interoperability notes, synchronization is required because only one can hold the buffer at a time. OpenCL runs a kernel that reads an x, y, and z value, updates it according to projectile motion laws, writes it back to the buffer, and releases it. OpenGL then draws the buffer, and the cycle repeats.
 
-While this system works, it means only one physics update happens per visual frame. If you're locked to your monitor's refresh rate (*let's assume 60Hz*), you'll draw 60 frames per second, which is your framerate.
+While this system works, it means only one physics update happens per visual frame. Each frame carries fixed overhead: synchronizing OpenGL and OpenCL, acquiring and releasing the buffer, and driver command submission. This overhead is paid once per frame regardless of how much compute work you do.
 
-But here's the catch: **Just because you can only draw 60 frames per second doesn't mean you can only compute 60 times per second.**
+ If you're locked to your monitor's refresh rate (*let's assume 60Hz*), you'll draw 60 frames per second, which is your framerate. But here's the catch: **Just because you can only draw 60 frames per second doesn't mean you can only compute 60 times per second.**
 
 `STEPS_PER_FRAME)` determines how many compute kernels are launched before drawing a frame. We want to know "How fast can my GPU update particles?" not "How many frames can I draw?" When `STEPS_PER_FRAME` is set higher than 1, you're running multiple physics updates per visual frame.
 
 Think of your GPU like a delivery truck. Every frame is a "trip", and every kernel compute is a "package".
 
-- **Make 1 delivery per trip** (`STEPS_PER_FRAME` = 1): You drive to one house, drop off a package, drive all the way back, then wait for the next scheduled trip. Inefficient!
-- **Make 10 deliveries per trip** (`STEPS_PER_FRAME` = 10): You drive out once, hit 10 houses, then come back. You're doing 10 times more work in the same wall-clock time.
+- **Make 1 delivery per trip** (`STEPS_PER_FRAME` = 1): You drive out, drop off one package, and drive all the way back. Most of the trip is overhead. Inefficient!
+- **Make 10 deliveries per trip** (`STEPS_PER_FRAME` = 10): You drive out once, hit 10 houses, then come back. The drive is the same cost, but you're doing 10× more useful work during it.
 
-Your GPU has limits, so setting the value too high will hurt your framerate. Your goal is to find the value that stresses your GPU the most while maintaining fluid motion. An easy way is to increase the value until your FPS drops to around your monitor's refresh rate. Or just pick a really high value (e.g., 1024), and see what happens. You will be running tests with both `STEPS_PER_FRAME = 1;` and `STEPS_PER_FRAME = ???;`, where ??? is the value you chose. 
+Your GPU has limits, so setting the value too high will hurt your framerate. Increasing STEPS_PER_FRAME amortizes the per-frame overhead across more physics updates, so the GPU spends a greater fraction of its time doing real work. Your goal is to find the value that stresses your GPU the most while maintaining fluid motion. An easy way is to increase the value until your FPS drops to around your monitor's refresh rate. Or just pick a really high value (e.g., 1024), and see what happens. You will be running tests with both `STEPS_PER_FRAME = 1;` and `STEPS_PER_FRAME = ???;`, where `???` is the value you chose. 
+
+*[see what happens]: Basically, you FPS will significantly drop but your particle score will increase. At very high values, the overhead becomes negligible and the score approaches the GPU's true kernel throughput ceiling.
 
 !!! note "Test with your maximum particle count when finding this value."
 
@@ -189,6 +226,8 @@ If you check the "show performance" box, you will see current, peak, and average
 #### 6. Show Results
 
 Create a table and a graph of Performance vs. Total Number of Particles. Test with at least five different particle counts, ranging from something small (e.g., 1024) to something large (e.g., 1024 × 8192). Run the full set of tests under both `STEPS_PER_FRAME = 1;` and `STEPS_PER_FRAME = ???;`, where `???` is the value you chose. 
+
+By increasing `STEPS_PER_FRAME`, we do more physics per frame, spending less time on per-frame overhead relative to useful work. The *potential* rising GigaParticles/sec score reflects the GPU staying busy rather than waiting on synchronization.
 
 ??? note "Example Graph"
 	<figure markdown="span">
@@ -281,7 +320,7 @@ Your commentary PDF should include:
 	
 	Each particle has a position, a color, and a velocity, all stored as 4-component floats:
 	
-	```cpp
+	```cpp title="main.cpp"
 	struct xyzw { float x, y, z, w; };   // positions and velocities
 	struct rgba { float r, g, b, a; };   // colors
 	```
@@ -362,7 +401,7 @@ Your commentary PDF should include:
 
 	In the sample code, Joe Parallel wanted to clean up the code by treating x, y, z positions and velocities as single variables instead of handling each component separately. To do this, he created custom types called `point`, `vector`, and `color` using typedef, all backed by OpenCL's `float4` type. (OpenCL doesn't have a `float3`, so `float4` is the next best option, the fourth component goes unused.) He also stored sphere definitions as a `float4`, packing the center coordinates and radius as x, y, z, r.
 
-	```cpp
+	```cpp title="particles.cl"
 	typedef float4 point;   // x, y, z, 1.
 	typedef float4 vector;  // vx, vy, vz, 0.
 	typedef float4 color;   // r, g, b, a
@@ -373,13 +412,13 @@ Your commentary PDF should include:
 
 	Joe Parallel also stored the (x,y,z) acceleration of gravity in a `float4`:
 
-	```cpp
+	```cpp title="particles.cl"
 	const vector G	= (vector)(0.0, -9.8, 0.0, 0.0);
 	```
 
 	Now, given a particle's position `point p` and a particle's velocity `vector v`, here is how you advance it one time step:
 
-	```cpp
+	```cpp title="particles.cl"
 	kernel
 	void
 	Particle( global point *dPobj, global vector *dVel, global color *dCobj )
@@ -388,7 +427,7 @@ Your commentary PDF should include:
 	
 	point	p = dPobj[gid];
 	vector	v = dVel[gid];
-	color	c = dCobj[gid];
+	color	c = dCobj[gid]; // (1)!
 	
 	point  pp = p + v*DT + G*(point)(0.5 * DT * DT); 	// p'
 	vector vp = v + G*DT; 								// v'
@@ -396,10 +435,12 @@ Your commentary PDF should include:
 	pp.w = 1.0;
 	vp.w = 0.0;
 	```
-
+	
+	1. This could be helpful  :eyes: 
+	
 	Bouncing is handled by changing the velocity vector according to the outward-facing surface normal of the bumper at the point right before an impact:
 
-	```cpp
+	```cpp title="particles.cl"
 	// Test against the first sphere here:
 	if(IsInsideSphere(pp, Spheres[0]))
 	{
@@ -410,26 +451,31 @@ Your commentary PDF should include:
 
 	And then do this again for the second bumper object. Assigning the new positions and velocities back into the global buffers happens like this:
 
-	```cpp
+	```cpp title="particles.cl"
 	dPobj[gid] = pp;
 	dVel[gid]  = vp;
-	dCobj[gid] = ????;	// Some change in color based on something 
-						// happening in the simulation
+	dCobj[gid] = ????;  // Some change in color based on something 
+						// happening in the simulation (1)
 	```
-
+	
+	1. This could also be helpful  :thinking:
+	
 	---
 	
 	**Some utility functions you might find helpful:**
 
-	```cpp
-	bool IsInsideSphere(point p, sphere s)
+	```cpp title="particles.cl" linenums="11"
+	vector Bounce(vector in, vector n)
 	{
-	  float 	r	= fast_length(p.xyz - s.xyz);
-	  return	(r < s.w);
+	  n.w			= 0.0;
+	  n 			= fast_normalize(n);
+	  vector out 	= in - n*(vector)(2.0 * dot(in.xyz, n.xyz));	// angle of reflection equals angle of incidence
+	  out.w 		= 0.0;
+	  return 		out;
 	}
 	```
 
-	```cpp
+	```cpp title="particles.cl" linenums="20"
 	vector BounceSphere(point p, vector v, sphere s)
 	{
 	  vector	n;
@@ -438,15 +484,13 @@ Your commentary PDF should include:
 	  return	Bounce(v, n);
 	}
 	```
-
-	```cpp
-	vector Bounce(vector in, vector n)
+	
+		
+	```cpp title="particles.cl" linenums="28"
+	bool IsInsideSphere(point p, sphere s)
 	{
-	  n.w			= 0.0;
-	  n 			= fast_normalize(n);
-	  vector out 	= in - n*(vector)(2.0 * dot(in.xyz, n.xyz));	// angle of reflection equals angle of incidence
-	  out.w 		= 0.0;
-	  return 		out;
+	  float 	r	= fast_length(p.xyz - s.xyz);
+	  return	(r < s.w);
 	}
 	```
 	
