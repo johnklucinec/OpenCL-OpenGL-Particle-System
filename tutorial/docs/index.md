@@ -344,7 +344,7 @@ Your commentary PDF should include:
 	
 	**How the Scene Gets Drawn**
 	
-	The `Display()` function handles all of the drawing:
+	The `Render()` function handles all of the drawing:
 	
 	- Sets up the camera and projection (perspective or orthographic).
 	- Draws the wireframe spheres that act as bumpers for the particles (the same spheres are defined in the OpenCL kernel for collision).
