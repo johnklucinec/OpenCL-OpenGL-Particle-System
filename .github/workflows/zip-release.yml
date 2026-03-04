@@ -3,6 +3,7 @@ name: Build Source ZIP
 on:
   release:
     types: [created]
+  workflow_dispatch:
 
 jobs:
   zip:
