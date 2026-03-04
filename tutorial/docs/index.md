@@ -64,22 +64,51 @@ This project uses CMake as the build system to ensure it runs on Windows, macOS,
 #### Platform Setup
 
 ??? info "Windows Installation"
-	!!! warning "Requires [Visual Studio](https://visualstudio.microsoft.com/) with the **Desktop development with C++** workload installed"
-	
+
 	**Install Dependencies**
 	
 	Install [CMake](https://cmake.org/download/) (and add to PATH during install)
 	
 	**Build & Run**
 	
-	```
-	cmake -B build
-	cmake --build build --config Release
+	=== "MSVC"
 	
-	build\bin\Release\OpenGLApp.exe
-	```
+		!!! warning "Requires [Visual Studio](https://visualstudio.microsoft.com/) with the **Desktop development with C++** workload installed"
+		
+		```bat
+		cmake -B build
+		cmake --build build --config Release
+		
+		build\bin\Release\OpenGLApp.exe
+		```
+		
+		!!! success "Quick rebuild: `cmake --build build --config Release && build\bin\Release\OpenGLApp.exe`"
 	
-	!!! success "Quick rebuild: `cmake --build build --config Release && build\bin\Release\OpenGLApp.exe`"
+	=== "Clang + Ninja"
+	
+		!!! warning "Requires [Clang](https://releases.llvm.org/download.html) and [Ninja](https://ninja-build.org/) installed and added to PATH"
+		
+		```bat
+		cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -B build
+		cmake --build build
+		
+		build\bin\OpenGLApp.exe
+		```
+	
+		!!! success "Quick rebuild: `cmake --build build && build\bin\OpenGLApp.exe`"
+	
+	=== "GCC + Ninja"
+	
+		!!! warning "Requires [MSYS2](https://www.msys2.org/) with `mingw-w64-x86_64-gcc` and `mingw-w64-x86_64-ninja` installed and added to PATH"
+		
+		```bat
+		cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -B build
+		cmake --build build
+		
+		build\bin\OpenGLApp.exe
+		```
+		
+		!!! success "Quick rebuild: `cmake --build build && build\bin\OpenGLApp.exe`"
 
 ??? info "MacOS Installation"
 
