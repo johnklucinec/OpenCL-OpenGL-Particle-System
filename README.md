@@ -46,3 +46,16 @@ cmake --build build && ./build/bin/OpenGLApp
 ```
 
 For a more detailed setup guide, see the [platform-setup](https://johnklucinec.github.io/OpenCL-OpenGL-Particle-System/#platform-setup) part of the write up.
+
+---
+
+### Contributing
+
+To publish a release with the source ZIP attached, tag your commit and push the tag:
+
+```bash
+git tag v1.0
+git push origin v1.0
+```
+
+GitHub Actions will automatically build and attach `source.zip` to the release.
