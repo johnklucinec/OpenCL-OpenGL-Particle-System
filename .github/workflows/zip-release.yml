@@ -1,0 +1,21 @@
+name: Build Source ZIP
+
+on:
+  release:
+    types: [created]
+
+jobs:
+  zip:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Zip source folder contents
+        run: |
+          cd source
+          zip -r ../source.zip .
+
+      - name: Attach ZIP to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: source.zip

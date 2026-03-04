@@ -1,0 +1,26 @@
+CompileFlags:
+  Add:
+    - "-Isrc"
+    - "-Isrc/glfw/include"
+    - "-Isrc/imgui"
+    - "-Isrc/imgui/backends"
+    - "-Isrc/imgui/imGuIZMO"
+    - "-Isrc/glm"
+    - "-Isrc/glad/include"
+    - "-Isrc/openCL"
+    - "-Iglfw/include"
+    - "-Iimgui"
+    - "-Iimgui/backends"
+    - "-Iimgui/imGuIZMO"
+    - "-Iglm"
+    - "-Iglad/include"
+    - "-IopenCL"
+    # - "-I/opt/homebrew/opt/libomp/include"
+    - "-DIMGUIZMO_IMGUI_FOLDER=.."
+    - "-D_GLFW_WIN32"
+    - "-D_CRT_SECURE_NO_WARNINGS"
+    - "-std=c++17"
+  Compiler: clang++
+
+Diagnostics:
+  UnusedIncludes: None
