@@ -49,6 +49,16 @@ This project uses CMake as the build system to ensure it runs on Windows, macOS,
 └─ particles.cl     	# You will edit this file   
 ```
 
+#### Controls
+
+| Input | Action |
+|-------|--------|
+| <kbd>Right-click</kbd> | Opens settings menu |
+| <kbd>Left-click</kbd> + Drag | Rotate camera |
+| <kbd>Alt</kbd> + <kbd>Left-click</kbd> + Drag | Pan camera |
+| <kbd>Shift</kbd> + <kbd>Left-click</kbd> + Drag | Zoom camera |
+
+
 ---
 
 #### Platform Setup
@@ -179,8 +189,8 @@ While this system works, it means only one physics update happens per visual fra
 
 Think of your GPU like a delivery truck. Every frame is a "trip", and every kernel compute is a "package".
 
-- **Make 1 delivery per trip** (`STEPS_PER_FRAME` = 1): You drive out, drop off one package, and drive all the way back. Most of the trip is overhead. Inefficient!
-- **Make 10 deliveries per trip** (`STEPS_PER_FRAME` = 10): You drive out once, hit 10 houses, then come back. The drive is the same cost, but you're doing 10× more useful work during it.
+- **Make 1 delivery per trip** (`STEPS_PER_FRAME` = `1`): You drive out, drop off one package, and drive all the way back. Most of the trip is overhead. Inefficient!
+- **Make 10 deliveries per trip** (`STEPS_PER_FRAME` = `10`): You drive out once, hit 10 houses, then come back. The drive is the same cost, but you're doing 10× more useful work during it.
 
 Your GPU has limits, so setting the value too high will hurt your framerate. Increasing STEPS_PER_FRAME amortizes the per-frame overhead across more physics updates, so the GPU spends a greater fraction of its time doing real work. Your goal is to find the value that stresses your GPU the most while maintaining fluid motion. An easy way is to increase the value until your FPS drops to around your monitor's refresh rate. Or just pick a really high value (e.g., 1024), and see what happens. You will be running tests with both `STEPS_PER_FRAME = 1;` and `STEPS_PER_FRAME = ???;`, where `???` is the value you chose. 
 
@@ -547,6 +557,7 @@ Your commentary PDF should include:
 
 ## Grading
 
+<div class="full-table" markdown="1">
 | Requirement | Points |
 | :-- | :-- |
 | Convincing particle motion | 20 |
@@ -555,6 +566,7 @@ Your commentary PDF should include:
 | Performance table and graph | 20 |
 | Commentary in the PDF file | 30 |
 | **Potential Total** | **120** |
+</div>
 
 !!! success
     The motion, bouncing, and colors of the particles need to be demonstrated via a video link. If it is a Kaltura video, be sure it has been set to **Unlisted**.

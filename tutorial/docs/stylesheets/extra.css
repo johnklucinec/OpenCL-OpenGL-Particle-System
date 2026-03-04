@@ -1,0 +1,28 @@
+/* All Tables */
+.full-table .md-typeset__scrollwrap,
+.full-table .md-typeset__table {
+	width: 100% !important;
+  display: block;
+}
+
+.md-typeset table:not([class]) th,
+.md-typeset table:not([class]) td {
+  padding: 4px 10px;
+  font-size: 14px;
+}
+
+/* Grading Table */
+.full-table table {
+  width: 100% !important;
+  display: table !important;
+}
+
+/* Light mode */
+[data-md-color-scheme="default"] .md-typeset code {
+  color: #B8860B;
+}
+
+/* Dark mode */
+[data-md-color-scheme="slate"] .md-typeset code {
+  color:#EBBE4D;
+}
