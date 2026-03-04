@@ -74,12 +74,12 @@ This project uses CMake as the build system to ensure it runs on Windows, macOS,
 	
 	```
 	cmake -B build
-	cmake --build build
+  cmake --build build --config Release
 	
-	build\bin\Debug\OpenGLApp.exe
+	build\bin\Release\OpenGLApp.exe
 	```
 	
-	!!! success "Quick rebuild: `cmake --build build && build\bin\Debug\OpenGLApp.exe`"
+	!!! success "Quick rebuild: `cmake --build build --config Release && build\bin\Release\OpenGLApp.exe`"
 
 ??? info "MacOS Installation"
 
@@ -94,7 +94,7 @@ This project uses CMake as the build system to ensure it runs on Windows, macOS,
 	**Build & Run**
 	
 	```
-	cmake -B build
+  cmake -B build -DCMAKE_BUILD_TYPE=Release
 	cmake --build build
 	
 	./build/bin/OpenGLApp
@@ -117,7 +117,7 @@ This project uses CMake as the build system to ensure it runs on Windows, macOS,
 	**Build & Run**
 	
 	```
-	cmake -B build
+	cmake -B build -DCMAKE_BUILD_TYPE=Release
 	cmake --build build
 	
 	./build/bin/OpenGLApp
