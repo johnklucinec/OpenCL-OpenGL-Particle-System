@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include "cl.h"
+#include <CL/cl.h>
 
 #include <array>
 #include <cstdio>

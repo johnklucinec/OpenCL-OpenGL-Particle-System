@@ -12,15 +12,16 @@
 #include <glm.hpp>
 #include <gtc/matrix_transform.hpp>
 #include <gtc/type_ptr.hpp>
-#include "cl_utils.h"
-#include "gl_utils.h"
 #include <imGuIZMOquat.h>
 #include <iostream>
 #include <string>
 #include <vector>
 
-#include "cl.h"
-#include "cl_gl.h"
+#define CL_TARGET_OPENCL_VERSION 120
+#include <CL/cl.h>
+#include <CL/cl_gl.h>
+#include "cl_utils.h"
+#include "gl_utils.h"
 
 // Platform-specific includes
 #if defined(_WIN32)

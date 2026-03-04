@@ -15,7 +15,6 @@ CompileFlags:
     - "-Iglm"
     - "-Iglad/include"
     - "-IopenCL"
-    # - "-I/opt/homebrew/opt/libomp/include"
     - "-DIMGUIZMO_IMGUI_FOLDER=.."
     - "-D_GLFW_WIN32"
     - "-D_CRT_SECURE_NO_WARNINGS"

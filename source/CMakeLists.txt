@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.14)
 cmake_policy(SET CMP0074 NEW)
 project(OpenGLApp VERSION 0.1.0 LANGUAGES C CXX)
 
@@ -6,7 +6,6 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-# OpenGL
 set(OpenGL_GL_PREFERENCE LEGACY)
 find_package(OpenGL REQUIRED)
 
@@ -104,27 +103,32 @@ set(GLM_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src/glm)
 # ── OpenCL ────────────────────────────────────────────────────────────────────
 set(OPENCL_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src/openCL)
 
-if(WIN32)
-    if(CMAKE_SIZEOF_VOID_P EQUAL 8)
-        set(OpenCL_LIBRARY ${OPENCL_DIR}/OpenCL64.lib)
-    else()
-        set(OpenCL_LIBRARY ${OPENCL_DIR}/OpenCL32.lib)
-    endif()
-    if(NOT EXISTS ${OpenCL_LIBRARY})
-        message(FATAL_ERROR "OpenCL library not found at ${OpenCL_LIBRARY}")
-    endif()
-elseif(APPLE)
-    find_library(OpenCL_LIBRARY OpenCL)
-    if(NOT OpenCL_LIBRARY)
-        message(FATAL_ERROR "OpenCL framework not found.")
-    endif()
+if(APPLE)
+    find_library(OpenCL_LIBRARY OpenCL REQUIRED)
+    add_library(_OpenCLCompat INTERFACE)
+    target_link_libraries(_OpenCLCompat INTERFACE ${OpenCL_LIBRARY})
+    target_include_directories(_OpenCLCompat INTERFACE ${OPENCL_DIR})
+    add_library(OpenCL::OpenCL ALIAS _OpenCLCompat)
 else()
-    find_library(OpenCL_LIBRARY OpenCL)
-    if(NOT OpenCL_LIBRARY)
-        message(FATAL_ERROR "libOpenCL.so not found. Install opencl-icd-loader or GPU drivers.")
-    endif()
+    include(FetchContent)
+
+    set(OPENCL_HEADERS_BUILD_TESTING OFF CACHE BOOL "" FORCE)
+    FetchContent_Declare(
+        OpenCL-Headers
+        GIT_REPOSITORY https://github.com/KhronosGroup/OpenCL-Headers.git
+        GIT_TAG        v2024.10.24
+    )
+    FetchContent_MakeAvailable(OpenCL-Headers)
+
+    set(OPENCL_ICD_LOADER_BUILD_TESTING     OFF CACHE BOOL "" FORCE)
+    set(OPENCL_ICD_LOADER_BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+    FetchContent_Declare(
+        OpenCL-ICD-Loader
+        GIT_REPOSITORY https://github.com/KhronosGroup/OpenCL-ICD-Loader.git
+        GIT_TAG        v2024.10.24
+    )
+    FetchContent_MakeAvailable(OpenCL-ICD-Loader)
 endif()
-message(STATUS "Using OpenCL library: ${OpenCL_LIBRARY}")
 
 # ── Include directories ───────────────────────────────────────────────────────
 target_include_directories(OpenGLApp PRIVATE
@@ -135,7 +139,6 @@ target_include_directories(OpenGLApp PRIVATE
     ${IMGUIZMO_DIR}
     ${GLM_DIR}
     ${GLAD_DIR}/include
-    ${OPENCL_DIR}
 )
 
 # ── Platform-specific compile options ─────────────────────────────────────────
@@ -152,13 +155,13 @@ endif()
 if(WIN32)
     target_link_libraries(OpenGLApp PRIVATE
         ${OPENGL_gl_LIBRARY}
-        ${OpenCL_LIBRARY}
+        OpenCL::OpenCL
         gdi32
     )
 elseif(APPLE)
     target_link_libraries(OpenGLApp PRIVATE
         ${OPENGL_gl_LIBRARY}
-        ${OpenCL_LIBRARY}
+        OpenCL::OpenCL
         "-framework Cocoa"
         "-framework IOKit"
         "-framework CoreFoundation"
@@ -167,7 +170,7 @@ elseif(APPLE)
 else()
     target_link_libraries(OpenGLApp PRIVATE
         ${OPENGL_gl_LIBRARY}
-        ${OpenCL_LIBRARY}
+        OpenCL::OpenCL
         X11
         pthread
         dl
