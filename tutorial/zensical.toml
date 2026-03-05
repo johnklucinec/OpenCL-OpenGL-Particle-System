@@ -2,7 +2,7 @@
 
 site_name = "OpenCL/OpenGL Particle System"
 site_description = "A particle system tutorial using OpenCL/OpenGL interop"
-site_url = ""
+site_url = "https://johnklucinec.github.io/OpenCL-OpenGL-Particle-System/"
 site_author = "John Klucinec"
 copyright = """
 Copyright &copy; 2026, <a href="https://www.linkedin.com/in/john-klucinec/">John Klucinec</a>
