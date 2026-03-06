@@ -1,4 +1,4 @@
-# OpenGL Particle System
+# OpenCL/OpenGL Interop Particle System
 
 A cross-platform particle system built with OpenGL and OpenCL.
 For a full breakdown of the project, see the [write-up](https://johnklucinec.github.io/OpenCL-OpenGL-Particle-System/#platform-setup).
