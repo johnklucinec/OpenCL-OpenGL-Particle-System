@@ -260,6 +260,8 @@ Vary the total number of particles from something small-ish (~1024) to something
 
 If you check the "show performance" box, you will see current, peak, and average measurements. Let the simulation run for a few seconds, and then write down your **Average** GigaParticles/Sec.
 
+Are your particles moving too slow or too fast? Adjust the `BASE_DT` constant in the code. Larger values speed up movement, smaller values slow it down.
+
 ---
 
 #### 6. Show Results
