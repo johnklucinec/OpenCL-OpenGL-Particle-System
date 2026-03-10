@@ -9,7 +9,7 @@ description: Combine OpenCL and OpenGL to create a GPU-accelerated particle syst
 
 Particle systems are used in games, films, and visual effects to simulate natural phenomena such as clouds, dust, fireworks, fire, explosions, water flow, sand, swarms of insects, and even herds of animals. Once you understand how they work, you'll notice them everywhere.
 
-A particle system operates by controlling an extensive collection of individual 3D particles to exhibit some behavior. For a deeper technical overview, see [Mike Bailey's slide](https://web.engr.oregonstate.edu/~mjb/cs491/Handouts/particlesystems.2pp.pdf).
+A particle system operates by controlling an extensive collection of individual 3D particles to exhibit some behavior. For a deeper technical overview, see [this PowerPoint](https://web.engr.oregonstate.edu/~mjb/cs491/Handouts/particlesystems.2pp.pdf) from Mike Bailey.
 
 !!! quote "Fun Fact"
     Particle systems were first seen in [Star Trek II: The Wrath of Khan Genesis Demo](https://www.youtube.com/watch?v=Qe9qSLYK5q4), animated over 40 years ago. While the technology has evolved significantly since then, this groundbreaking sequence introduced the concept to computer graphics.
@@ -36,7 +36,7 @@ In this project, you will combine OpenCL and OpenGL to create your own particle 
 
 ## Getting Started
 
-This project uses CMake as the build system to ensure it runs on Windows, macOS, and Linux. It's written in C++ 17 and uses OpenGL 4.1 and OpenCL 1.2, as these are the latest versions supported on macOS. OpenMP is used for kernel benchmarking. If you need to install any of these, detailed instructions for each operating system are provided below.
+This project uses CMake as the build system to ensure it runs on Windows, macOS, and Linux. It's written in C++ 17 and uses OpenGL 4.1 Core and OpenCL 1.2, as these are the latest versions supported on macOS. If you need to install any of these, detailed instructions for each operating system are provided below.
 
 #### Project Layout
 
@@ -208,24 +208,24 @@ First, it's important to understand how the default program flow works
 
 	</figure>
 	
-Looking at the graph, once we set up the data on the OpenGL side, OpenCL acquires it. As explained in the OpenCL/GL Interoperability notes, synchronization is required because only one can hold the buffer at a time. OpenCL runs a kernel that reads an x, y, and z value, updates it according to projectile motion laws, writes it back to the buffer, and releases it. OpenGL then draws the buffer, and the cycle repeats.
+Looking at the graph, once we set up the data on the OpenGL side, OpenCL acquires it. As explained in the [OpenCL/GL Interoperability notes](https://web.engr.oregonstate.edu/~mjb/cs575/Handouts/opencl.opengl.vbo.1pp.pdf), synchronization is required because only one can hold the buffer at a time. OpenCL runs a kernel that reads an x, y, and z value, updates it according to projectile motion laws, writes it back to the buffer, and releases it. OpenGL then draws the buffer, and the cycle repeats.
 
 While this system works, it means only one physics update happens per visual frame. Each frame carries fixed overhead: synchronizing OpenGL and OpenCL, acquiring and releasing the buffer, and driver command submission. This overhead is paid once per frame regardless of how much compute work you do.
 
  If you're locked to your monitor's refresh rate (*let's assume 60Hz*), you'll draw 60 frames per second, which is your framerate. But here's the catch: **Just because you can only draw 60 frames per second doesn't mean you can only compute 60 times per second.**
 
-`STEPS_PER_FRAME)` determines how many compute kernels are launched before drawing a frame. We want to know "How fast can my GPU update particles?" not "How many frames can I draw?" When `STEPS_PER_FRAME` is set higher than 1, you're running multiple physics updates per visual frame.
+`STEPS_PER_FRAME` determines how many compute kernels are launched before drawing a frame. We want to know "How fast can my GPU update particles?" not "How many frames can I draw?" When `STEPS_PER_FRAME` is set higher than 1, you're running multiple physics updates per visual frame.
 
 Think of your GPU like a delivery truck. Every frame is a "trip", and every kernel compute is a "package".
 
 - **Make 1 delivery per trip** (`STEPS_PER_FRAME` = `1`): You drive out, drop off one package, and drive all the way back. Most of the trip is overhead. Inefficient!
 - **Make 10 deliveries per trip** (`STEPS_PER_FRAME` = `10`): You drive out once, hit 10 houses, then come back. The drive is the same cost, but you're doing 10× more useful work during it.
 
-Your GPU has limits, so setting the value too high will hurt your framerate. Increasing STEPS_PER_FRAME amortizes the per-frame overhead across more physics updates, so the GPU spends a greater fraction of its time doing real work. Your goal is to find the value that stresses your GPU the most while maintaining fluid motion. An easy way is to increase the value until your FPS drops to around your monitor's refresh rate. Or just pick a really high value (e.g., 1024), and see what happens. You will be running tests with both `STEPS_PER_FRAME = 1;` and `STEPS_PER_FRAME = ???;`, where `???` is the value you chose. 
+Your GPU has limits, so setting the value too high will hurt your framerate. Increasing `STEPS_PER_FRAME` amortizes the per-frame overhead across more physics updates, so the GPU spends a greater fraction of its time doing real work. Your goal is to find the value that stresses your GPU the most while maintaining fluid motion. An easy way is to increase the value until your FPS drops to around your monitor's refresh rate. Or just pick a really high value (e.g., 1024), and see what happens. You will be running tests with both `STEPS_PER_FRAME = 1;` and `STEPS_PER_FRAME = ???;`, where `???` is the value you chose. 
 
-*[see what happens]: Basically, you FPS will significantly drop but your particle score will increase. At very high values, the overhead becomes negligible and the score approaches the GPU's true kernel throughput ceiling.
+*[see what happens]: Basically, your FPS will significantly drop but the particle score will increase. At very high values, the overhead becomes negligible and the score approaches the GPU's true kernel throughput ceiling.
 
-!!! note "Test with your maximum particle count when finding this value."
+!!! note "When finding this value, test with your maximum particle count."
 
 ---
 
@@ -233,7 +233,7 @@ Your GPU has limits, so setting the value too high will hurt your framerate. Inc
 
 Your simulation must have at least **two** "bumpers" in it for the particles to bounce off of. Each bumper needs to be geometrically designed such that, given particles XYX, you can quickly tell if that particle is inside or outside the bumper. To get the bounce right, each bumper must know its outward-facing surface normal everywhere.
 
-What's the easiest shape for a bumper? A sphere! In computer graphics, we love spheres as they are computationally "nice". It's fast and straightforward to tell if something is inside or outside of a sphere. It's just as straightforward to determine a normal vector for a point on the surface of a sphere, too.
+What's the easiest shape for a bumper? A sphere! In computer graphics, we love spheres as they are computationally "nice". It's fast and straightforward to tell if something is inside or outside of a sphere. It's just as straightforward to determine a normal vector for a point on the surface of a sphere.
 
 It is OK to assume that the two bumpers are separate from each other; that is, a particle cannot collide with both at the same time.
 
@@ -264,7 +264,7 @@ If you check the "show performance" box, you will see current, peak, and average
 
 #### 6. Show Results
 
-Create a table and a graph of Performance vs. Total Number of Particles. Test with at least five different particle counts, ranging from something small (e.g., 1024) to something large (e.g., 1024 × 8192). Run the full set of tests under both `STEPS_PER_FRAME = 1;` and `STEPS_PER_FRAME = ???;`, where `???` is the value you chose. 
+Create a table and a graph of Performance vs. Total Number of Particles. Test with at least five different particle counts, ranging from something small (~1024) to something large (~1024 × 8192). Run the full set of tests under both `STEPS_PER_FRAME = 1;` and `STEPS_PER_FRAME = ???;`, where `???` is the value you chose. 
 
 By increasing `STEPS_PER_FRAME`, we do more physics per frame, spending less time on per-frame overhead relative to useful work. The *potential* rising GigaParticles/sec score reflects the GPU staying busy rather than waiting on synchronization.
 
@@ -321,7 +321,7 @@ By increasing `STEPS_PER_FRAME`, we do more physics per frame, spending less tim
 
 #### 7. Demonstrate your program in action
 
-Make a video of your program in action and be sure it's Unlisted. You can use any video-capture tool you want. If you have never done this before, I recommend Kaltura, for which OSU has a site license for you to use. You can access the Kaltura noteset here. If you use Kaltura, be sure your video is set to Unlisted. If it isn't, then we won't be able to see it, and we can't grade your project.
+Make a video of your program in action and be sure it's Unlisted. You can use any video-capture tool you want. If you have never done this before, I recommend Kaltura, for which OSU has a site license for you to use. You can access the Kaltura noteset [here](https://web.engr.oregonstate.edu/~mjb/cs557/Handouts/kaltura.1pp.pdf). If you use Kaltura, be sure your video is set to Unlisted. If it isn't, then we won't be able to see it, and we can't grade your project.
 
 Sites like YouTube also work. Just make sure your video is either public or unlisted, not **private**.
 
@@ -336,7 +336,7 @@ Your commentary PDF should include:
 
 1. A web link to the video showing your program in action -- be sure your video is Unlisted.
 2. What machine did you run this on?
-3. What predictable dynamic thing did you do with the particle colors (random changes are not good enough)?
+3. What predictable dynamic thing did you do with the particle colors? *random changes are not good enough*
 4. Include at least one screenshot of your project in action
 5. Show the table and graph.
 6. What patterns are you seeing in the performance curve?
@@ -378,17 +378,17 @@ Your commentary PDF should include:
 	particle.velCL   // A matching OpenCL buffer for velocities
 	```
 
-	The position and color VBOs are also turned into OpenCL buffers (`#!as3 particle.posCL`, `#!as3 particle.colorCL`) using `clCreateFromGLBuffer`. That means OpenCL and OpenGL share the same memory for positions and colors, so there is no copying back and forth.
+	The position and color VBOs are also turned into OpenCL buffers (`#!as3 particle.posCL`, `#!as3 particle.colorCL`) using `#!c++ clCreateFromGLBuffer`. That means OpenCL and OpenGL share the same memory for positions and colors, so there is no copying back and forth.
 	
 	---
 	
 	**How Particles Get Their Starting Values**
 	
-	The function `ResetParticles()` is Joe's “initial conditions” step. It:
+	The function `#!c++ ResetParticles()` is Joe's “initial conditions” step. It:
   
-	1. Maps the position VBO with `glMapBuffer`, fills GPU memory directly with random `(x,y,z)` positions in a 3D box, and sets `w = 1.`
+	1. Maps the position VBO with `#!c++ glMapBuffer`, fills GPU memory directly with random `(x,y,z)` positions in a 3D box, and sets `w = 1.`
 	2. Maps the color VBO, fills GPU memory with random bright colors, and sets `a = 1.`
-	3. Fills the host velocity array `#!as3 particle.velHost` with random `(vx, vy, vz)` values, then uses `clEnqueueWriteBuffer` to copy those velocities into the OpenCL buffer `#!as3 particle.velCL`.
+	3. Fills the host velocity array `#!as3 particle.velHost` with random `(vx, vy, vz)` values, then uses `#!c++ clEnqueueWriteBuffer` to copy those velocities into the OpenCL buffer `#!as3 particle.velCL`.
 	
 	At this point, all particles have a randomized position, color, and velocity, and both APIs agree on where that data lives.
 	
@@ -396,10 +396,10 @@ Your commentary PDF should include:
 	
 	**How OpenCL and OpenGL Share the Work**
 	
-	Initialization in `InitCL()` does the heavy lifting Joe does not want you to worry about:
+	Initialization in `#!c++ InitCL()` does the heavy lifting Joe does not want you to worry about:
 	
 	- Picks an OpenCL device and creates a context that can share with the current OpenGL context.
-	- Creates the OpenCL views of the OpenGL position and color VBOs with `clCreateFromGLBuffer`.
+	- Creates the OpenCL views of the OpenGL position and color VBOs with `#!c++ clCreateFromGLBuffer`.
 	- Creates the pure-OpenCL velocity buffer, builds the `Particle` kernel from `particles.cl`, and sets up the kernel arguments: position buffer, velocity buffer, color buffer, and the time step `dt`.
 	
 	After that, the compute side is ready to run; you do not need to change any of this setup to experiment with the kernel.
@@ -408,13 +408,13 @@ Your commentary PDF should include:
 	
 	**What Happens Each Frame**
 	
-	Every frame, `Animate()` runs the simulation step before anything gets drawn:
+	Every frame, `#!c++ Animate()` runs the simulation step before anything gets drawn:
 	
 	1. **Pause Check**: If the app is paused, nothing happens.
-	2. **Give Buffers to OpenCL**: `clEnqueueAcquireGLObjects` tells OpenGL to stand back while OpenCL updates the shared position and color buffers.
+	2. **Give Buffers to OpenCL**: `#!c++ clEnqueueAcquireGLObjects` tells OpenGL to stand back while OpenCL updates the shared position and color buffers.
 	3. **Set the Time Step**: A small `dt` is computed (`BASE_DT / STEPS_PER_FRAME`) and passed as kernel argument 3.
 	4. **Run the Kernel**: The `Particle` kernel is launched `STEPS_PER_FRAME` times over all `NUM_PARTICLES`. Each work-item handles one particle and updates its position, velocity, and (optionally) color.
-	5. **Give Buffers Back to OpenGL**: `clEnqueueReleaseGLObjects` hands the shared buffers back, and `clFinish` waits for everything to complete.
+	5. **Give Buffers Back to OpenGL**: `#!c++ clEnqueueReleaseGLObjects` hands the shared buffers back, and `clFinish` waits for everything to complete.
 	
 	By the time this function returns, the OpenGL VBOs contain the new particle positions and colors ready to be drawn.
 	
@@ -422,11 +422,11 @@ Your commentary PDF should include:
 	
 	**How the Scene Gets Drawn**
 	
-	The `Render()` function handles all of the drawing:
+	The `#!c++ Render()` function handles all of the drawing:
 	
 	- Sets up the camera and projection (perspective or orthographic).
 	- Draws the wireframe spheres that act as bumpers for the particles (the same spheres are defined in the OpenCL kernel for collision).
-	- Binds the particle VAO and calls `glDrawArrays(GL_POINTS, 0, NUM_PARTICLES)` to draw every particle as a point, using the shared position and color data.s
+	- Binds the particle VAO and calls `#!c++ glDrawArrays(GL_POINTS, 0, NUM_PARTICLES)` to draw every particle as a point, using the shared position and color data.s
 	- Renders the ImGui UI and performance overlay on top.
 	
 	So, by the time drawing happens, no CPU-side loops are needed to touch individual particles. Everything is done on the GPU.
@@ -438,7 +438,7 @@ Your commentary PDF should include:
 	
 	**Advancing a Particle by DT**
 
-	In the sample code, Joe Parallel wanted to clean up the code by treating x, y, z positions and velocities as single variables instead of handling each component separately. To do this, he created custom types called `point`, `vector`, and `color` using typedef, all backed by OpenCL's `float4` type. (OpenCL doesn't have a `float3`, so `float4` is the next best option, the fourth component goes unused.) He also stored sphere definitions as a `float4`, packing the center coordinates and radius as x, y, z, r.
+	In the sample code, Joe Parallel wanted to clean up the code by treating x, y, z positions and velocities as single variables instead of handling each component separately. To do this, he created custom types called `point`, `vector`, and `color` using typedef, all backed by OpenCL's `float4` type. (OpenCL doesn't have a `float3`, so `float4` is the next best option, the fourth component goes unused.) He also stored sphere definitions as a `float4`, packing the center coordinates and radius as `x, y, z, r`.
 
 	```cpp title="particles.cl"
 	typedef float4 point;   // x, y, z, 1.
@@ -449,7 +449,7 @@ Your commentary PDF should include:
 	Spheres[0] = (sphere)(-100.0, -800.0, 0.0, 600.0);
 	```
 
-	Joe Parallel also stored the (x,y,z) acceleration of gravity in a `float4`:
+	Joe Parallel also stored the `(x,y,z)` acceleration of gravity in a `float4`:
 
 	```cpp title="particles.cl"
 	const vector G	= (vector)(0.0, -9.8, 0.0, 0.0);
@@ -542,7 +542,7 @@ Your commentary PDF should include:
 
 	A good first step is to double-check that `LOCAL_SIZE` and `STEPS_PER_FRAME` are configured correctly. VSYNC can also drag your scores down a bit, particularly when `STEPS_PER_FRAME` is set to 1.
 	
-	That said, if you're consistently under 1.0, you can switch the benchmark from GigaParticles/Second to MegaParticles/Second. In `PerformanceOverlay()`, change:
+	That said, if you're consistently under 1.0, you can switch the benchmark from GigaParticles/Second to MegaParticles/Second. In `#!c++ PerformanceOverlay()`, change:
 	
 	```cpp
 	float gigaParticlesPerSec = (perf.elapsedTime > 0.0f) ? (float)NUM_PARTICLES / perf.elapsedTime / 1000000000.0f : 0.0f;
@@ -573,12 +573,12 @@ Your commentary PDF should include:
 	
 	The sample code includes code from the printinfo program. This will show what OpenCL capabilities are on your system. The code will also attempt to pick the best OpenCL environment. Feel free to change this if you think it has picked the wrong one. 
 	
-	To enable printinfo, set `PRINTINFO = true;`
+	To enable printinfo, set `PRINTINFO` to true
 	
 	---
 	
 	Don't know your monitors refresh rate? Try enabling VSYNC. 
-	To enable VSYNC, set `VSYNC = true`;
+	To enable VSYNC, set `VSYNC` to true.
 	
 	!!! info "VSYNC sometimes locks to double your screen's refresh rate."
 
